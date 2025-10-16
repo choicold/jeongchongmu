@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: jeongchongmu-db
+    restart: unless-stopped
+    environment: # .env 파일에서 값을 가져옴
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - jeongchongmu-network
+
+volumes:
+  postgres_data:
+
+networks:
+  jeongchongmu-network:
+    driver: bridge
