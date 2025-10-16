@@ -1,30 +1,32 @@
 package com.jeongchongmu.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.Contact;
-import io.swagger.v3.oas.models.servers.Server;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import java.util.List;
 
 @Configuration
 public class SwaggerConfig {
     @Bean
-    public OpenAPI customOpenAPI() {
+    public OpenAPI jeongchongmuAPI() {
         return new OpenAPI()
                 .info(new Info()
                         .title("정총무 API")
-                        .version("1.0.0")
                         .description("LLM 기반 그룹 정산 및 소비 내역 관리 API")
+                        .version("v1.0.0")
                         .contact(new Contact()
-                                .name("캡스톤팀")
+                                .name("정총무 팀")
                                 .email("team@jeongchongmu.com")))
-                .servers(List.of(
-                        new Server().url("http://localhost:8080")
-                                .description("로컬 개발 서버"),
-                        new Server().url("https://api.jeongchongmu.com")
-                                .description("프로덕션 서버")
-                ));
+                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
+                .components(new Components()
+                        .addSecuritySchemes("Bearer Authentication",
+                                new SecurityScheme()
+                                        .type(SecurityScheme.Type.HTTP)
+                                        .scheme("bearer")
+                                        .bearerFormat("JWT")));
     }
 }

@@ -38,3 +38,4 @@ out/
 
 ### Spring Boot sensitive properties ###
 application.properties
+application.yml

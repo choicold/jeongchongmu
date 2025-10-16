@@ -1,9 +1,9 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:18-alphine
     container_name: jeongchongmu-db
-    restart: unless-stopped
-    environment: # .env 파일에서 값을 가져옴
+    restart: always
+    environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -11,12 +11,55 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d jeongchongmu_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - jeongchongmu-network
 
+# pgAdmin 4 (DB 관리 웹 UI)
+  pgadmin:
+    image: dpage/pgadmin4:8.12
+    container_name: jeongchongmu-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+# Redis (세션/캐시)
+  redis:
+    image: redis:7-alpine
+    container_name: jeongchongmu-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    command: redis-server --appendonly yes
+
 volumes:
   postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
-  jeongchongmu-network:
+  app-network:
     driver: bridge
