@@ -11,6 +11,10 @@ on:
     paths:
       - 'backend/**'
 
+permissions:
+  checks: write
+  pull-requests: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
