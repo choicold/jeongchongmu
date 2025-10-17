@@ -47,7 +47,7 @@ jobs:
 
       - name: Build
         working-directory: ./frontend
-	run: npm run build
+        run: npm run build
 
       - name: Upload build artifacts
         if: success()
