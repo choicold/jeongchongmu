@@ -122,3 +122,41 @@ management:
 logging:
   level:
     com.jeongchongmu: INFO
+
+---
+# Test 프로필 (GitHub Actions CI/CD)
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/test_db}
+    username: ${SPRING_DATASOURCE_USERNAME:test_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:test_password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: false
+
+server:
+  port: 0
+
+management:
+  health:
+    redis:
+      enabled: false
+
+logging:
+  level:
+    com.jeongchongmu: DEBUG
+    org.springframework.web: DEBUG
