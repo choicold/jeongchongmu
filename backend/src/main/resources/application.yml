@@ -116,6 +116,8 @@ management:
   health:
     defaults:
       enabled: true
+    redis:
+      enabled: false
 
 logging:
   level:
