@@ -20,38 +20,6 @@ services:
     networks:
       - jeongchongmu-network
 
-# pgAdmin 4 (DB 관리 웹 UI)
-  pgadmin:
-    image: dpage/pgadmin4:8.12
-    container_name: jeongchongmu-pgadmin
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-      PGADMIN_LISTEN_PORT: 80
-    ports:
-      - "5050:80"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - jeongchongmu-network
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-
-# Redis (세션/캐시)
-  redis:
-    image: redis:7-alpine
-    container_name: jeongchongmu-redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - jeongchongmu-network
-    command: redis-server --appendonly yes
-
 volumes:
   postgres_data:
     driver: local
