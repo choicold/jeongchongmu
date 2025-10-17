@@ -76,6 +76,6 @@ jobs:
         working-directory: ./backend
         run: |
           npm install -g @railway/cli
-          railway up --service jeongchongmu
+          railway up --service jeongchongmu --project ${{ secrets.RAILWAY_PROJECT_ID }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
