@@ -78,4 +78,4 @@ jobs:
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
         run: |
           npm i -g @railway/cli
-          railway up --service jeongchongmu
+          railway up --service jeongchongmu --project ${{ secrets.RAILWAY_PROJECT_ID }}
