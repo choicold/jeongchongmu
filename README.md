@@ -10,11 +10,10 @@
 ## 📑 목차
 
 1. [개발 환경](#-개발-환경)
-2. [시작하기 전에](#-시작하기-전에)
-3. [Backend 세팅](#-backend-세팅)
-4. [Frontend 세팅](#-frontend-세팅)
-5. [개발 워크플로우](#-개발-워크플로우)
-6. [배포](#-배포)
+2. [Backend 세팅](#-backend-세팅)
+3. [Frontend 세팅](#-frontend-세팅)
+4. [개발 워크플로우](#-개발-워크플로우)
+5. [배포](#-배포)
 
 ---
 
@@ -263,7 +262,7 @@ Railway Dashboard:
 
 | 항목 | URL |
 |------|-----|
-| GitHub Repository | https://github.com/{username}/jeongchongmu |
+| GitHub Repository | https://github.com/choicold/jeongchongmu |
 | Railway Dashboard | https://railway.app |
 | Supabase Dashboard | https://supabase.com |
 | API 문서 (Swagger) | http://localhost:8080/swagger-ui/index.html |
