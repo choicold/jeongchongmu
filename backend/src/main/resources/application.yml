@@ -108,10 +108,14 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info
+      base-path: /actuator
   endpoint:
     health:
-      show-details: never
+      show-details: when-authorized
+  health:
+    defaults:
+      enabled: true
 
 logging:
   level:
