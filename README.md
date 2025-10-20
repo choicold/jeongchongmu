@@ -42,7 +42,7 @@
 
 ```bash
 # Repository 클론
-git clone https://github.com/{username}/jeongchongmu.git
+git clone https://github.com/choicold/jeongchongmu.git
 cd jeongchongmu
 
 # 브랜치 확인
