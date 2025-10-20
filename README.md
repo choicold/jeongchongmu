@@ -78,7 +78,7 @@ vi .env
 #### **Docker Compose**
 
 ```bash
-# docker-compose.yml이 루트 디렉토리에 있다면
+# root repository에서 입력
 docker-compose up -d
 
 # 확인
