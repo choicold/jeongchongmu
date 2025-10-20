@@ -34,7 +34,7 @@
 |------|------|
 | IntelliJ IDEA | Backend 개발 IDE |
 | VS Code | Frontend 개발 IDE |
-| DBeaver | 데이터베이스 관리 | -> 요건 아직 알아서 세팅하세요.
+| DBeaver | 데이터베이스 관리 | -> 요건 알아서 세팅하세요.
 | Postman | API 테스트 |
 
 ---
@@ -57,7 +57,7 @@ jeongchongmu/
 ├── frontend/          # React Native 프론트엔드
 ├── docekr-compose.yml # docker local DB 세팅 -> 백엔드 안에 넣어도 됨. 처음에 세팅 잘못해놔서 요건 선택적으로 하세요. 어차피 로컬에서 쓰는거니까
 ├── .github/           # GitHub Actions CI
-├── .env               # 노션에 있음. 복사해서 vi .env로 생성 근데 이것도 docker 때문에 쓰는거라 backend에 있는 .env랑 어차피 일부 중복임. 그래서 이것도 백엔드 파일 안에 도커 파일이 있으면 안넣어도 되요.
+├── .env               # 노션에 있음. 복사해서 vi .env로 생성
 └── README.md
 ```
 
@@ -79,11 +79,6 @@ vi .env
 
 ```bash
 # docker-compose.yml이 루트 디렉토리에 있다면
-docker-compose up -d
-
-```bash
-# docker-compose.yml이 backend 폴더에 있다면
-cd backend
 docker-compose up -d
 
 # 확인
@@ -161,7 +156,7 @@ npm start
 ```bash
 main       # 운영 환경 (Railway 자동 배포)
   ↑
-develop    # 개발 통합 브랜치
+develop    # 개발 통합 브랜치 -> 10/20일 기준 아직 미생성 개발 시작 시 생성 필요
   ↑
 feature/*  # 기능 개발 브랜치
 ```
@@ -198,7 +193,7 @@ git push origin feature/user-login
 
 ```
 1. 팀원이 코드 리뷰
-2. GitHub Actions CI/CD 자동 실행
+2. GitHub Actions CI 자동 실행
    - Backend 테스트
    - Frontend 빌드
 3. 모든 체크 통과 후 Merge
@@ -245,7 +240,7 @@ curl https://jeongchongmu-production.up.railway.app/actuator/health
 open https://jeongchongmu-production.up.railway.app/swagger-ui/index.html
 ```
 
-### **배포 환경 접근**
+### **배포 환경 접근** -> 이메일 알려주면 초대할께요
 
 ```
 Railway Dashboard:
