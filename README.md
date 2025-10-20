@@ -56,7 +56,7 @@ jeongchongmu/
 ├── backend/           # Spring Boot 백엔드
 ├── frontend/          # React Native 프론트엔드
 ├── docekr-compose.yml # docker local DB 세팅 -> 백엔드 안에 넣어도 됨. 처음에 세팅 잘못해놔서 요건 선택적으로 하세요. 어차피 로컬에서 쓰는거니까
-├── .github/           # GitHub Actions CI/CD
+├── .github/           # GitHub Actions CI
 ├── .env               # 노션에 있음. 복사해서 vi .env로 생성 근데 이것도 docker 때문에 쓰는거라 backend에 있는 .env랑 어차피 일부 중복임. 그래서 이것도 백엔드 파일 안에 도커 파일이 있으면 안넣어도 되요.
 └── README.md
 ```
