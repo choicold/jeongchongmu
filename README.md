@@ -137,6 +137,7 @@ cd frontend
 
 # npm 사용
 npm install
+```
 
 ### **Step 3: 어플 실행**
 선수 조건: Expo Go 어플을 미리 다운 받기
