@@ -23,4 +23,6 @@ public class SettlementCreateRequest {
     // (예: [{userId: 1, ratio: 60}, {userId: 2, ratio: 40}])
     private List<PercentSettlementEntry> percentEntries;
 
+    private List<Long> participantUserIds;
+
 }
