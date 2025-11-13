@@ -24,7 +24,7 @@ public class Group extends BaseEntity {
             generator = "group_seq_generator"
     )
     @SequenceGenerator(
-            name = "sequence-generator",
+            name = "group_seq_generator",
             sequenceName = "groups_id_seq",
             allocationSize = 10
     )
@@ -37,8 +37,10 @@ public class Group extends BaseEntity {
     private String description;
 
     @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="creater_id", nullable=false)
+    @JoinColumn(name="creator_id", nullable=false, updatable=false)
     private User creator;
+
+    // 나중에 권한을 세부적으로 나누려면 최초 그룹 OWNER와 현재 그룹 OWNER를 구분하여 코드 구현
 
     @OneToMany(mappedBy="group", cascade=CascadeType.ALL, orphanRemoval=true)
     @Builder.Default

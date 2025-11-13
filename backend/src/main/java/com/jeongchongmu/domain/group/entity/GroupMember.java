@@ -48,7 +48,5 @@ public class GroupMember extends BaseEntity {
     @Column(nullable=false)
     private Role role;
 
-    public void changeRole(Role newRole) {
-        this.role = newRole;
-    }
+    public void changeRole(Role newRole) { this.role = newRole; }
 }
