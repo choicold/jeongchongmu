@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 public class ExpenseItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -25,8 +25,8 @@ public class ExpenseItem {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
+    @Column(nullable = false)
+    private Long price;
 
     @Column(nullable = false)
     @Builder.Default
