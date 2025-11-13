@@ -69,7 +69,7 @@ COMMENT ON TABLE group_members IS '그룹 멤버 관계 (N:M)';
 -- 지출 테이블
 -- ===================================
 CREATE TABLE IF NOT EXISTS expenses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
     payer_id UUID REFERENCES users(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
