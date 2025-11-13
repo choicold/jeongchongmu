@@ -8,15 +8,15 @@ import lombok.*;
 @Entity
 @Table(name="group_members",
         uniqueConstraints = {
-                @UniqueConstraint(
-                        name="uk_user_group",
-                        columnNames = {"user_id", "group_id"}
-                )
+            @UniqueConstraint(
+                name="uk_user_group",
+                columnNames = {"user_id", "group_id"}
+            )
         },
         indexes = {
-                @Index(name="idx_user_id", columnList="user_id"),
-                @Index(name="idx_group_id", columnList="group_id"),
-                @Index(name="idx_role", columnList="role")
+            @Index(name="idx_user_id", columnList="user_id"),
+            @Index(name="idx_group_id", columnList="group_id"),
+            @Index(name="idx_role", columnList="role")
         }
 )
 @Getter
@@ -48,7 +48,5 @@ public class GroupMember extends BaseEntity {
     @Column(nullable=false)
     private Role role;
 
-    public void changeRole(Role newRole) {
-        this.role = newRole;
-    }
+    public void changeRole(Role newRole) { this.role = newRole; }
 }
