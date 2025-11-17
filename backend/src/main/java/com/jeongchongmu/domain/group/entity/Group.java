@@ -40,6 +40,9 @@ public class Group extends BaseEntity {
     @JoinColumn(name="creator_id", nullable=false, updatable=false)
     private User creator;
 
+    @Column(unique=true, nullable=false, length=8)
+    private String inviteCode;
+
     // 나중에 권한을 세부적으로 나누려면 최초 그룹 OWNER와 현재 그룹 OWNER를 구분하여 코드 구현
 
     @OneToMany(mappedBy="group", cascade=CascadeType.ALL, orphanRemoval=true)
@@ -49,5 +52,9 @@ public class Group extends BaseEntity {
     public void updateInfo(String name, String description) {
         this.name = name;
         this.description = description;
+    }
+
+    public void regenerateInviteCode(String newInviteCode) {
+        this.inviteCode = newInviteCode;
     }
 }

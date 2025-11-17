@@ -1,14 +1,13 @@
 package com.jeongchongmu.domain.group.repository;
 
 import com.jeongchongmu.domain.group.entity.Group;
-import com.jeongchongmu.domain.group.entity.GroupMember;
 import com.jeongchongmu.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface GroupRepository extends JpaRepository<Group, Long> {
 
@@ -26,4 +25,10 @@ public interface GroupRepository extends JpaRepository<Group, Long> {
             "LEFT JOIN g.members m " +
             "WHERE g.creator = :user OR m.user = :user")
     List<Group> findAllGroupsByUser(@Param("user") User user);
+
+    // 초대 코드로 그룹 조회
+    Optional<Group> findByInviteCode(String inviteCode);
+
+    // 초대 코드 중복 체크
+    boolean existsByInviteCode(String inviteCode);
 }
