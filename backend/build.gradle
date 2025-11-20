@@ -64,6 +64,15 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'io.rest-assured:rest-assured'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	//gemini OCR
+//	implementation 'com.google.genai:google-genai:1.28.0'
+
+	// Spring AI BOM (버전 관리)
+	implementation platform("org.springframework.ai:spring-ai-bom:1.0.0-SNAPSHOT")
+	// Google Gemini
+	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
+
 }
 
 bootJar {

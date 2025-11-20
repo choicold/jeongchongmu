@@ -8,6 +8,7 @@ public record ExpenseUpdateDTO(
         Long amount,
         LocalDateTime expenseData,
 
-        List<Long> participantIds, //참여자
-        List<ExpenseItemDTO> items //아이템
+        List<Long> participantIds, //참여자ID
+        List<ExpenseItemDTO> items,//아이템 객체
+        List<String> tagNames // 태그String
 ) { }

@@ -19,13 +19,17 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     //.save(), .deleteById(id), .delete(expense) 등등
 
     //그룹별 정산조회
-    List<Expense> findByGroup(Group group);
+    @Query("SELECT e FROM Expense e " +
+            "LEFT JOIN FETCH e.payer " +
+            "WHERE e.group = :group ORDER BY e.expenseData DESC")
+    List<Expense> findByGroupWithPayer(@Param("group") Group group);
 
     //특정 정산 + item + 참여인원 조회
     @Query("SELECT e FROM Expense e " +
             "LEFT JOIN FETCH e.items " +
             "LEFT JOIN FETCH e.participants p " +
             "LEFT JOIN FETCH p.user " + // 참여자의 상세 User 정보까지 한 번에 가져옵니다.
+            "LEFT JOIN FETCH e.tags " + // tag 정보
             "WHERE e.id = :expenseId")
     Optional<Expense> findByIdWithDetails(@Param("expenseId")Long expenseId);
 
