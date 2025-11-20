@@ -43,6 +43,9 @@ public class Expense {
     @Column(nullable = false, updatable = false)
     private LocalDateTime expenseData;
 
+    @Column(length = 1000)
+    private String receiptUrl;
+
     /** [연관관계]
      * expense-expenseItem 1:N
      * expense-expenseParticipant 1:N
