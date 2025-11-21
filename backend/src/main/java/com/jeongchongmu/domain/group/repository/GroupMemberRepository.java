@@ -32,7 +32,7 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     List<GroupMember> findAllByGroupAndRole(Group group, Role role);
 
     // 특정 그룹의 멤버 수
-    long countByGroup(Group group);
+    int countByGroup(Group group);
 
     // 특정 그룹에서 특정 유저를 삭제
     void deleteByGroupAndUser(Group group, User user);

@@ -1,6 +1,7 @@
 package com.jeongchongmu.user;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,6 +16,8 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
+@AllArgsConstructor
+@Builder
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,7 +40,7 @@ public class User {
     private LocalDateTime createdAt;
 
 
-    @Builder
+    // @Builder
     User(String email, String password, String name){
         this.email = email;
         this.password = password;
