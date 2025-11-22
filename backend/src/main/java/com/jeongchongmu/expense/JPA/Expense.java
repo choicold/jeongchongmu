@@ -1,5 +1,6 @@
 package com.jeongchongmu.expense.JPA;
 
+import com.jeongchongmu.common.BaseEntity;
 import com.jeongchongmu.domain.group.entity.Group;
 import com.jeongchongmu.user.User;
 import jakarta.persistence.*;
@@ -20,7 +21,7 @@ import java.util.Set;
 @Getter
 @Entity
 @Table(name = "Expenses")
-public class Expense {
+public class Expense extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
@@ -48,12 +49,15 @@ public class Expense {
      * expense-expenseParticipant 1:N
      * expense-expenseTag N:N
      */
+    @Builder.Default
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ExpenseItem> items = new ArrayList<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ExpenseParticipant> participants = new ArrayList<>();
 
+    @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "ExpenseTags", // 매핑 테이블 이름
