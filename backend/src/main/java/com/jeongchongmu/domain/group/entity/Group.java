@@ -14,7 +14,6 @@ import java.util.List;
         @Index(name="idx_creator_id", columnList="creator_id")
         })
 @Getter
-@Setter
 @NoArgsConstructor(access= AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder

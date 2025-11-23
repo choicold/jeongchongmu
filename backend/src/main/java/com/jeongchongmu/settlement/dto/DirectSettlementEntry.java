@@ -8,5 +8,5 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class DirectSettlementEntry {
     private Long userId; // 이 사용자가
-    private BigDecimal amount; // 이만큼 부담한다
+    private Long amount; // 이만큼 부담한다
 }

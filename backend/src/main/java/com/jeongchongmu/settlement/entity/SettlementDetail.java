@@ -35,7 +35,7 @@ public class SettlementDetail extends BaseEntity {
 
     // 보내야 할 금액 (Expense.java와 맞춰 BigDecimal 사용)
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal amount;
+    private long amount;
 
     @Column(nullable = false)
     @Builder.Default
@@ -44,5 +44,9 @@ public class SettlementDetail extends BaseEntity {
     // 송금 완료 처리 메서드
     public void markAsSent() {
         this.isSent = true;
+    }
+
+    public void addAmount(Long amountToAdd) {
+        this.amount += amountToAdd;
     }
 }

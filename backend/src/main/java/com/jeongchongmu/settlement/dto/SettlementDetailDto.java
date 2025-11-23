@@ -13,7 +13,7 @@ public class SettlementDetailDto {
     private String debtorName; // 돈 보낼 사람 이름
     private Long creditorId; // 돈 받을 사람 ID
     private String creditorName; // 돈 받을 사람 이름
-    private BigDecimal amount; // 금액
+    private Long amount; // 금액
     private boolean isSent; // 송금 완료 여부
 
     // Entity(SettlementDetail)를 DTO로 변환하는 정적 메서드
