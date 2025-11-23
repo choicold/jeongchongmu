@@ -1,5 +1,6 @@
 package com.jeongchongmu.user;
 
+import com.jeongchongmu.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,7 +19,7 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 @AllArgsConstructor
 @Builder
-public class User {
+public class User extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,9 +36,9 @@ public class User {
     @Column(nullable = false)
     private String name;
 
-    @CreatedDate
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(nullable = false)
+    private String fcmToken; // 로그인 시 발급 받아야 하는 푸시 토큰
+
 
 
     // @Builder
@@ -57,6 +58,10 @@ public class User {
         if(accountNumber != null){
             this.accountNumber = accountNumber;
         }
+    }
+
+    public void updateFcmToken(String token) {
+        this.fcmToken = token;
     }
 }
 

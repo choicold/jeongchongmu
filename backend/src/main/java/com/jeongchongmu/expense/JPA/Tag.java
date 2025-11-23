@@ -30,6 +30,7 @@ public class Tag {
     private Group group;
 
     //tag=> 지출내역 확인시
+    @Builder.Default
     @ManyToMany(mappedBy = "tags")
     private Set<Expense> expenses = new HashSet<>();
 
