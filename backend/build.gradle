@@ -57,6 +57,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'io.rest-assured:rest-assured'
+	testRuntimeOnly 'com.h2database:h2'
 
 	// Test - JUnit 5
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -75,4 +76,5 @@ jar {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	jvmArgs("-XX:+EnableDynamicAgentLoading")
 }
