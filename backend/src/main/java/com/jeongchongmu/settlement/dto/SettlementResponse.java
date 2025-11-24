@@ -5,7 +5,6 @@ import com.jeongchongmu.settlement.enums.SettlementMethod;
 import com.jeongchongmu.settlement.enums.SettlementStatus;
 import lombok.Builder;
 import lombok.Getter;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 

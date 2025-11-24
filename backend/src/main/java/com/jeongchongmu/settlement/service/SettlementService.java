@@ -49,7 +49,6 @@ public class SettlementService {
         Expense expense = expenseRepository.findById(request.getExpenseId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지출 내역입니다."));
 
-        // ★★★ [수정됨] BigDecimal -> Long 변경 ★★★
         long totalAmount = expense.getAmount();
         User payer = expense.getPayer();
         Group group = expense.getGroup();
@@ -84,7 +83,7 @@ public class SettlementService {
         return SettlementResponse.from(newSettlement, totalAmount);
     }
 
-    // ★★★ [수정됨] N분의 1 계산 (Long 사용)
+    // N분의 1 계산
     private void calculateDivide(Settlement settlement, Long totalAmount, User payer, List<User> participants) {
         int participantCount = participants.size();
         if (participantCount == 0) throw new IllegalArgumentException("참여자가 없습니다.");
@@ -122,7 +121,7 @@ public class SettlementService {
                     .settlement(settlement)
                     .debtor(debtor)
                     .creditor(payer)
-                    .amount(entry.getAmount()) // Long 타입
+                    .amount(entry.getAmount())
                     .build();
             details.add(detail);
         }
@@ -148,7 +147,7 @@ public class SettlementService {
                     .settlement(settlement)
                     .debtor(debtor)
                     .creditor(payer)
-                    .amount(amountForThisUser) // Long 타입
+                    .amount(amountForThisUser)
                     .build();
             details.add(detail);
         }
@@ -198,10 +197,6 @@ public class SettlementService {
                 }
 
                 // 금액 누적
-                // (Setter가 없으니, amount 필드를 수정하거나 builder로 다시 만들어야 하는데,
-                //  SettlementDetail에 setAmount 같은 편의 메서드 추가를 추천합니다.)
-                //  여기선 편의상 Reflection이나 로직으로 처리한다고 가정하고,
-                //  SettlementDetail 엔티티에 'addAmount' 메서드를 추가해주세요.
                 detail.addAmount(splitPrice);
             }
         }

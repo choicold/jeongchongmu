@@ -5,7 +5,6 @@ import com.jeongchongmu.common.BaseEntity;
 import com.jeongchongmu.user.User;
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
 
 @Entity
 @Table(name = "settlement_details")

@@ -2,7 +2,7 @@ package com.jeongchongmu.vote.service;
 
 import com.jeongchongmu.expense.JPA.Expense;
 import com.jeongchongmu.expense.JPA.ExpenseItem;
-import com.jeongchongmu.expense.repository.ExpenseRepository;
+import com.jeongchongmu.expense.Repository.ExpenseRepository;
 import com.jeongchongmu.user.User;
 import com.jeongchongmu.user.UserRepository;
 import com.jeongchongmu.vote.dto.CastVoteRequest;
