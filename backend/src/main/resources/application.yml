@@ -13,14 +13,14 @@ spring:
       on-profile: local
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/jeongchongmu
-    username: admin
-    password: M7cEWKDpA3sFNLRY3zkXTjGSKWXZod7E7XfqYoTJK+Q=
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: true
     properties:
       hibernate:
@@ -29,16 +29,6 @@ spring:
 
   flyway:
     enabled: false
-
-  # ====================
-  # gemini
-  # ====================
-  ai:
-    gemini:
-      api-key: ${GOOGLE_API_KEY}
-    openai:
-      api-key: ${OPENAI_API_KEY}
-
 
 server:
   port: ${SERVER_PORT:8080}
@@ -170,4 +160,3 @@ logging:
   level:
     com.jeongchongmu: DEBUG
     org.springframework.web: DEBUG
-
