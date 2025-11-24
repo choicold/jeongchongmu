@@ -27,6 +27,7 @@ public class UserService {
 
         User user = User.builder()
                         .email(signUpRequestDto.getEmail())
+                        .fcmToken("ex-token")
                         .password(encodedPassword)
                         .name(signUpRequestDto.getName()).build();
 
