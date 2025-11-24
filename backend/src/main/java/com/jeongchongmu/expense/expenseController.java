@@ -48,10 +48,10 @@ public class expenseController {
             @AuthenticationPrincipal User user
     ) {
         // Service에 DTO, "지출 ID", "현재 유저 ID" (권한 검증용)를 넘김
-        ExpenseDetailDTO updatedExpense = expenseService.updateExpense(dto, expenseId, user.getId());
+        boolean res = expenseService.updateExpense(dto, expenseId, user.getId());
 
         // 수정 성공 시, HTTP 200 OK와 수정된 DTO를 반환
-        return ResponseEntity.ok(updatedExpense);
+        return ResponseEntity.ok().build();
     }
 
     /**

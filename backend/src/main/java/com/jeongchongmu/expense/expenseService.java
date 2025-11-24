@@ -9,10 +9,7 @@ import com.jeongchongmu.expense.JPA.ExpenseItem;
 import com.jeongchongmu.expense.JPA.ExpenseParticipant;
 import com.jeongchongmu.expense.JPA.Tag;
 import com.jeongchongmu.expense.Repository.TagRepository;
-import com.jeongchongmu.expense.dto.ExpenseCreateDTO;
-import com.jeongchongmu.expense.dto.ExpenseSimpleDTO;
-import com.jeongchongmu.expense.dto.ExpenseUpdateDTO;
-import com.jeongchongmu.expense.dto.ExpenseDetailDTO;
+import com.jeongchongmu.expense.dto.*;
 import com.jeongchongmu.user.User;
 import com.jeongchongmu.expense.Repository.ExpenseRepository;
 import com.jeongchongmu.user.UserRepository;
@@ -70,11 +67,16 @@ public class expenseService {
             }
         }
 
-        // 4. [태그 처리] (신규)
-        //    DTO로 받은 '태그 이름' 목록을 'Tag 엔티티' 셋으로 변환
+        // 4. [검증] 총액 일치 여부 (Create는 모든 정보가 DTO에 있으므로 단순 비교)
+        long itemsSum = dto.items().stream().mapToLong(ExpenseItemDTO::price).sum();
+        if (itemsSum != dto.amount()) {
+            throw new IllegalArgumentException(String.format("총액(%d)과 아이템 합계(%d)가 다릅니다.", dto.amount(), itemsSum));
+        }
+
+        // 5. [태그 처리]
         Set<Tag> tags = processTags(group, dto.tagNames());
 
-        // 5. Expense 객체 생성
+        // 6. Expense 객체 생성
         Expense expense = Expense.builder()
                 .title(dto.title())
                 .amount(dto.amount())
@@ -84,22 +86,23 @@ public class expenseService {
                 .receiptUrl(dto.receiptUrl())
                 .build();
 
-        // 6. Item 추가
+        // 7. Item 추가
         dto.items().forEach(item -> expense.addItem(ExpenseItem.builder()
-                .name(item.name()).price(item.price()).quantity(item.quantity())
+                .name(item.name())
+                .price(item.price())
+                .quantity(item.quantity())
                 .build()));
 
-        // 7. Participant 추가
+        // 8. Participant 추가
         dto.participantIds().forEach(id -> expense.addParticipant(
                 new ExpenseParticipant(expense, userRepository.getReferenceById(id))));
 
-        // 8. Tag 추가
+        // 9. Tag 추가
         tags.forEach(expense::addTag);
 
-        // 9. 저장 (Cascade)
+        // 10. 저장
         Expense savedExpense = expenseRepository.save(expense);
 
-        // 10. 생성된 상세 DTO 반환
         return ExpenseDetailDTO.fromEntity(savedExpense);
 
 
@@ -126,52 +129,62 @@ public class expenseService {
 
 
     /** [수정]기능
-     *  group, 지출자 뺌
+     *  group, 지출자는 수정 못함
      *
      *  admin, 지출자만 가능
      *  dirty checking 사용
      */
     @Transactional
-    public ExpenseDetailDTO updateExpense(ExpenseUpdateDTO dto, Long expenseId, Long currentUserId) {
+    public boolean updateExpense(ExpenseUpdateDTO dto, Long expenseId, Long currentUserId) {
 
-        // 1. 원본 조회 (Fetch Join으로 Tags까지 모두 가져옴)
+        // 1. 원본 조회
         Expense expense = expenseRepository.findByIdWithDetails(expenseId)
                 .orElseThrow(() -> new IllegalArgumentException("Expense not found"));
 
         // 2. 권한 검증
         checkUpdateAndDeletePermission(expense, currentUserId);
 
-        // 3. 기본 정보 수정 (Dirty Checking)
+        // 3. [검증] 데이터 정합성 확인 (중요!)
+        //    DTO에 없는 값은 기존 Entity 값을 사용하여 비교해야 안전함
+        validateConsistency(expense, dto);
+
+        // 4. 기본 정보 수정 (Dirty Checking)
         expense.updateInfo(dto.title(), dto.amount(), dto.expenseData());
 
-        // 4. 자식 리스트 (Item, Participant) 전체 대체
-        expense.getItems().clear();
-        expense.getParticipants().clear();
+        // 5. 아이템 리스트 수정 (Null 체크)
+        if (dto.items() != null) {
+            expense.getItems().clear();
+            dto.items().forEach(item -> expense.addItem(ExpenseItem.builder()
+                    .name(item.name())
+                    .price(item.price())
+                    .quantity(item.quantity())
+                    .build()));
+        }
 
-        dto.items().forEach(item -> expense.addItem(ExpenseItem.builder()
-                .name(item.name()).price(item.price()).quantity(item.quantity())
-                .build()));
+        // 6. 참여자 리스트 수정 (Null 체크)
+        if (dto.participantIds() != null) {
+            expense.getParticipants().clear();
+            Group group = expense.getGroup();
 
-        Group group = expense.getGroup(); // 소속 그룹은 불변
-        dto.participantIds().forEach(id -> {
-            User user = userRepository.getReferenceById(id);
-            if (!groupMemberRepository.existsByUserAndGroup(user, group)) {
-                throw new IllegalArgumentException("참여자가 그룹의 멤버가 아닙니다.");
-            }
-            expense.addParticipant(new ExpenseParticipant(expense, user));
-        });
+            dto.participantIds().forEach(id -> {
+                User user = userRepository.findById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자 ID입니다. (ID: " + id + ")"));
 
-        // 5. [태그 수정]
-        //    기존 태그 연결을 모두 끊고, DTO의 새 태그 목록으로 대체
-        expense.clearTags(); // (Expense 엔티티의 헬퍼 메서드 호출)
-        Set<Tag> newTags = processTags(group, dto.tagNames());
-        newTags.forEach(expense::addTag);
+                if (!groupMemberRepository.existsByUserAndGroup(user, group)) {
+                    throw new IllegalArgumentException(String.format("'%s'님은 이 그룹의 멤버가 아닙니다.", user.getName()));
+                }
+                expense.addParticipant(new ExpenseParticipant(expense, user));
+            });
+        }
 
-        // 6. @Transactional 종료 시 자동 UPDATE
+        // 7. 태그 수정 (Null 체크)
+        if (dto.tagNames() != null) {
+            expense.clearTags();
+            Set<Tag> newTags = processTags(expense.getGroup(), dto.tagNames());
+            newTags.forEach(expense::addTag);
+        }
 
-        // 7. 수정된 DTO 반환
-        return ExpenseDetailDTO.fromEntity(expense);
-
+        return true;
     }
 
     /**
@@ -286,6 +299,37 @@ public class expenseService {
 
         if (!isMember) {
             throw new IllegalArgumentException("이 그룹의 지출 내역을 조회할 권한이 없습니다.");
+        }
+    }
+
+    /**
+     * [수정 시 무결성 검증]
+     * 수정 요청된 값(DTO)이 있으면 그것을 쓰고, 없으면 기존(Entity) 값을 사용하여
+     * 총액 == 아이템합계 인지 검사
+     */
+    private void validateConsistency(Expense expense, ExpenseUpdateDTO dto) {
+        // 1. 최종 총액 결정 (수정 요청이 있으면 수정값, 없으면 기존값)
+        long finalAmount = (dto.amount() != null) ? dto.amount() : expense.getAmount();
+
+        // 2. 최종 아이템 합계 결정
+        long finalItemsSum;
+        if (dto.items() != null) {
+            // 아이템이 수정된다면, 수정될 아이템들의 합계 계산
+            finalItemsSum = dto.items().stream()
+                    .mapToLong(ExpenseItemDTO::price)
+                    .sum();
+        } else {
+            // 아이템이 수정되지 않는다면, 기존 아이템들의 합계 계산
+            finalItemsSum = expense.getItems().stream()
+                    .mapToLong(ExpenseItem::getPrice)
+                    .sum();
+        }
+
+        // 3. 비교
+        if (finalAmount != finalItemsSum) {
+            throw new IllegalArgumentException(
+                    String.format("지출 총액(%d)과 세부 항목의 합계(%d)가 일치하지 않습니다.", finalAmount, finalItemsSum)
+            );
         }
     }
 }
