@@ -12,6 +12,9 @@ DROP TABLE IF EXISTS group_members CASCADE;
 DROP TABLE IF EXISTS groups CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS user_votes CASCADE;
+DROP TABLE IF EXISTS vote_options CASCADE;
+DROP TABLE IF EXISTS votes CASCADE;
 
 -- ============================================================
 -- [2] 테이블 재생성 (ID 자동 증가 & BigInt 설정 완벽 적용)
@@ -65,7 +68,7 @@ CREATE TABLE expenses (
                           group_id bigint NOT NULL,
                           payer_id bigint NOT NULL,
                           title varchar(255) NOT NULL,
-                          amount bigint NOT NULL, -- Java Long 타입 대응
+                          amount bigint NOT NULL,
                           expense_data timestamp(6),
                           created_at timestamp(6),
                           updated_at timestamp(6)
@@ -76,7 +79,7 @@ CREATE TABLE expense_items (
                                id bigserial PRIMARY KEY,
                                expense_id bigint NOT NULL,
                                name varchar(255) NOT NULL,
-                               price bigint NOT NULL, -- Java Long 타입 대응
+                               price bigint NOT NULL,
                                quantity integer NOT NULL
 );
 
@@ -111,10 +114,35 @@ CREATE TABLE settlement_details (
                                     settlement_id bigint NOT NULL,
                                     debtor_id bigint NOT NULL,
                                     creditor_id bigint NOT NULL,
-                                    amount bigint NOT NULL, -- Java Long 타입 대응
+                                    amount bigint NOT NULL,
                                     is_sent boolean NOT NULL DEFAULT false,
                                     created_at timestamp(6),
                                     updated_at timestamp(6)
+);
+
+-- 11. Votes (투표 마스터)
+CREATE TABLE votes (
+                       id bigserial PRIMARY KEY,
+                       expense_id bigint NOT NULL,
+                       is_closed boolean NOT NULL DEFAULT false,
+                       created_at timestamp(6),
+                       updated_at timestamp(6)
+);
+
+-- 12. VoteOptions (투표 선택지)
+CREATE TABLE vote_options (
+                              id bigserial PRIMARY KEY,
+                              vote_id bigint NOT NULL,
+                              expense_item_id bigint NOT NULL
+);
+
+-- 13. UserVotes (사용자 투표 내역)
+CREATE TABLE user_votes (
+                            id bigserial PRIMARY KEY,
+                            user_id bigint NOT NULL,
+                            vote_option_id bigint NOT NULL,
+                            created_at timestamp(6),
+                            updated_at timestamp(6)
 );
 
 -- ============================================================
@@ -135,19 +163,24 @@ ALTER TABLE settlements ADD CONSTRAINT fk_settlements_expense FOREIGN KEY (expen
 ALTER TABLE settlement_details ADD CONSTRAINT fk_sd_settlement FOREIGN KEY (settlement_id) REFERENCES settlements (id);
 ALTER TABLE settlement_details ADD CONSTRAINT fk_sd_debtor FOREIGN KEY (debtor_id) REFERENCES users (id);
 ALTER TABLE settlement_details ADD CONSTRAINT fk_sd_creditor FOREIGN KEY (creditor_id) REFERENCES users (id);
+ALTER TABLE votes ADD CONSTRAINT fk_votes_expense FOREIGN KEY (expense_id) REFERENCES expenses (id);
+ALTER TABLE vote_options ADD CONSTRAINT fk_vo_vote FOREIGN KEY (vote_id) REFERENCES votes (id);
+ALTER TABLE vote_options ADD CONSTRAINT fk_vo_item FOREIGN KEY (expense_item_id) REFERENCES expense_items (id);
+ALTER TABLE user_votes ADD CONSTRAINT fk_uv_user FOREIGN KEY (user_id) REFERENCES users (id);
+ALTER TABLE user_votes ADD CONSTRAINT fk_uv_option FOREIGN KEY (vote_option_id) REFERENCES vote_options (id);
 
 
 -- ============================================================
 -- [4] 데이터 채워넣기 (Mock Data)
 -- ============================================================
 
--- 1. 유저 5명 생성
-INSERT INTO users (email, password, name, fcm_token, created_at) VALUES
-                                                                     ('u1@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '김지성', 'dummy_token_1', NOW()),
-                                                                     ('u2@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '방경환', 'dummy_token_2', NOW()),
-                                                                     ('u3@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '이선용', 'dummy_token_3', NOW()),
-                                                                     ('u4@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '최한기', 'dummy_token_4', NOW()),
-                                                                     ('u5@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '정총무', 'dummy_token_5', NOW());
+-- 1. 유저 5명 생성 (은행 정보 포함)
+INSERT INTO users (email, password, name, fcm_token, bank_name, account_number, created_at) VALUES
+                                                                                                ('u1@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '김지성', 'token_1', '토스뱅크', '1000-1111-2222', NOW()),
+                                                                                                ('u2@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '방경환', 'token_2', '카카오뱅크', '3333-44-555555', NOW()),
+                                                                                                ('u3@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '이선용', 'token_3', '국민은행', '123456-04-123456', NOW()),
+                                                                                                ('u4@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '최한기', 'token_4', '신한은행', '110-222-333333', NOW()),
+                                                                                                ('u5@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '정총무', 'token_5', '농협은행', '302-1234-5678-91', NOW());
 
 -- 2. 그룹 3개 생성
 INSERT INTO groups (name, description, creator_id, invite_code, created_at) VALUES
@@ -166,13 +199,13 @@ SELECT t.name, g.id
 FROM (VALUES ('식비'), ('교통'), ('숙박'), ('쇼핑'), ('술')) AS t(name)
          CROSS JOIN groups g;
 
--- 5. 지출 1000개 자동 생성 (금액 BIGINT 처리)
+-- 5. 지출 1000개 자동 생성
 INSERT INTO expenses (group_id, payer_id, title, amount, expense_data, created_at)
 SELECT
     floor(random() * 3 + 1)::bigint,
     floor(random() * 5 + 1)::bigint,
     (ARRAY['점심 식사', '저녁 회식', '스타벅스', '택시비', '숙소 결제', '이마트', '편의점', '비행기표', '렌트카'])[floor(random() * 9 + 1)],
-    (floor(random() * 100 + 1) * 1000)::bigint, -- Long 타입에 맞게 bigint 캐스팅
+    (floor(random() * 100 + 1) * 1000)::bigint,
     NOW() - (floor(random() * 30) || ' days')::interval,
     NOW()
 FROM generate_series(1, 1000);
@@ -189,7 +222,7 @@ INSERT INTO expense_tags (expense_id, tag_id)
 SELECT e.id, (SELECT id FROM tags t WHERE t.group_id = e.group_id ORDER BY random() LIMIT 1)
 FROM expenses e;
 
--- 7. ★ 정산 데이터 생성 (1~800번만 생성, 801~1000번은 미정산)
+-- 7. 정산 데이터 생성 (1~800번 생성)
 INSERT INTO settlements (expense_id, method, status, deadline, created_at)
 SELECT
     id,
@@ -206,13 +239,36 @@ SELECT
     s.id,
     gm.user_id,
     e.payer_id,
-    (e.amount / (SELECT COUNT(*) FROM group_members WHERE group_id = e.group_id))::bigint, -- N빵 (Long)
+    (e.amount / (SELECT COUNT(*) FROM group_members WHERE group_id = e.group_id))::bigint,
     (s.status = 'COMPLETED'),
     s.created_at
 FROM settlements s
          JOIN expenses e ON s.expense_id = e.id
          JOIN group_members gm ON e.group_id = gm.group_id
 WHERE gm.user_id != e.payer_id;
+
+-- 9. ★ 투표 데이터 생성 (801~850번 지출에 대해 투표 생성) ★
+INSERT INTO votes (expense_id, is_closed, created_at)
+SELECT id, false, NOW()
+FROM expenses
+WHERE id BETWEEN 801 AND 850;
+
+-- 10. ★ 투표 옵션 생성 (투표 방에 지출 항목 연결) ★
+INSERT INTO vote_options (vote_id, expense_item_id)
+SELECT v.id, ei.id
+FROM votes v
+         JOIN expense_items ei ON v.expense_id = ei.expense_id;
+
+-- 11. ★ 사용자 투표 내역 생성 (랜덤 투표) ★
+INSERT INTO user_votes (user_id, vote_option_id, created_at)
+SELECT
+    gm.user_id,
+    vo.id,
+    NOW()
+FROM votes v
+         JOIN group_members gm ON 1=1 -- (간단하게 모든 멤버가 투표했다고 가정)
+         JOIN vote_options vo ON v.id = vo.vote_id
+WHERE v.expense_id BETWEEN 801 AND 810; -- 10개 투표 방에 대해서만 투표 데이터 생성
 
 -- ============================================================
 -- [5] 시퀀스(번호표) 동기화
@@ -225,33 +281,6 @@ SELECT setval(pg_get_serial_sequence('expenses', 'id'), (SELECT MAX(id) FROM exp
 SELECT setval(pg_get_serial_sequence('expense_items', 'id'), (SELECT MAX(id) FROM expense_items));
 SELECT setval(pg_get_serial_sequence('settlements', 'id'), (SELECT MAX(id) FROM settlements));
 SELECT setval(pg_get_serial_sequence('settlement_details', 'id'), (SELECT MAX(id) FROM settlement_details));
-
-
-CREATE TABLE votes (
-                       id bigserial PRIMARY KEY,
-                       expense_id bigint NOT NULL,
-                       is_closed boolean NOT NULL DEFAULT false,
-                       created_at timestamp(6),
-                       updated_at timestamp(6)
-);
-
-CREATE TABLE vote_options (
-                              id bigserial PRIMARY KEY,
-                              vote_id bigint NOT NULL,
-                              expense_item_id bigint NOT NULL
-);
-
-CREATE TABLE user_votes (
-                            id bigserial PRIMARY KEY,
-                            user_id bigint NOT NULL,
-                            vote_option_id bigint NOT NULL,
-                            created_at timestamp(6),
-                            updated_at timestamp(6)
-);
-
--- 외래키 연결
-ALTER TABLE votes ADD CONSTRAINT fk_votes_expense FOREIGN KEY (expense_id) REFERENCES expenses (id);
-ALTER TABLE vote_options ADD CONSTRAINT fk_vo_vote FOREIGN KEY (vote_id) REFERENCES votes (id);
-ALTER TABLE vote_options ADD CONSTRAINT fk_vo_item FOREIGN KEY (expense_item_id) REFERENCES expense_items (id);
-ALTER TABLE user_votes ADD CONSTRAINT fk_uv_user FOREIGN KEY (user_id) REFERENCES users (id);
-ALTER TABLE user_votes ADD CONSTRAINT fk_uv_option FOREIGN KEY (vote_option_id) REFERENCES vote_options (id);
+SELECT setval(pg_get_serial_sequence('votes', 'id'), (SELECT MAX(id) FROM votes));
+SELECT setval(pg_get_serial_sequence('vote_options', 'id'), (SELECT MAX(id) FROM vote_options));
+SELECT setval(pg_get_serial_sequence('user_votes', 'id'), (SELECT MAX(id) FROM user_votes));
