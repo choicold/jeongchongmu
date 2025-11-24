@@ -6,3 +6,4 @@ public enum SettlementMethod {
     PERCENT,    // 비율 정산
     ITEM        // 항목별 정산 (투표 연동)
 }
+

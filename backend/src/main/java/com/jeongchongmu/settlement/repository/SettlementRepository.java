@@ -6,7 +6,6 @@ import com.jeongchongmu.statistics.dto.TopExpenseDto;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +20,7 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
     // (선택사항) 나중에 특정 지출(Expense) ID로 정산(Settlement)을
     // 찾아야 할 수도 있으므로, 아래 메서드를 추가해두면 유용합니다.
     Optional<Settlement> findByExpenseId(Long expenseId);
+
 
     // 1. 정산 요약 (총 횟수, 미완료 횟수)
     // 1. 정산 요약 (총 횟수, 미완료 횟수)
@@ -49,4 +49,6 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
     List<TopExpenseDto> findIncompletedSettlements(@Param("groupId") Long groupId,
                                                   @Param("year") int year,
                                                   @Param("month") int month);
+
+
 }

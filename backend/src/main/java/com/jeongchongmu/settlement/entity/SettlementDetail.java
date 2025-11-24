@@ -5,7 +5,7 @@ import com.jeongchongmu.common.BaseEntity;
 import com.jeongchongmu.user.User;
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
+
 
 @Entity
 @Table(name = "settlement_details")
@@ -35,7 +35,7 @@ public class SettlementDetail extends BaseEntity {
 
     // 보내야 할 금액 (Expense.java와 맞춰 BigDecimal 사용)
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal amount;
+    private long amount;
 
     @Column(nullable = false)
     @Builder.Default
@@ -45,4 +45,10 @@ public class SettlementDetail extends BaseEntity {
     public void markAsSent() {
         this.isSent = true;
     }
+
+    public void addAmount(Long amountToAdd) {
+        this.amount += amountToAdd;
+    }
+
 }
+
