@@ -43,7 +43,7 @@ public class GroupMemberController {
     }
 
     // 특정 멤버 조회
-    @GetMapping("/{groupId}/memebers/{memberId}")
+    @GetMapping("/{groupId}/members/{memberId}")
     public ResponseEntity<GroupMemberDto> getGroupMember(
             @PathVariable Long groupId,
             @PathVariable Long memberId

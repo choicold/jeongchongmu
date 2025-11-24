@@ -64,4 +64,3 @@ public class User extends BaseEntity {
         this.fcmToken = token;
     }
 }
-
