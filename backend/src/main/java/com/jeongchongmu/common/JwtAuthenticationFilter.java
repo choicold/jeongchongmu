@@ -27,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
         throws ServletException, IOException {
 
+        System.out.println("=== 요청 들어옴: " + request.getMethod() + " " + request.getRequestURI());
 
         String bearerToken = jwtUtil.getBearerTokenFromHeader(request);
 
@@ -49,6 +50,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            request.setAttribute("userId", user.getId());
         }
 
         filterChain.doFilter(request, response);

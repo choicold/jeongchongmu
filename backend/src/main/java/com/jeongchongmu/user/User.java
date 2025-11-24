@@ -30,7 +30,10 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private String password;
 
+    @Column(nullable = false)
     private String bankName;
+
+    @Column(nullable = false)
     private String accountNumber;
 
     @Column(nullable = false)
@@ -48,20 +51,8 @@ public class User extends BaseEntity {
         this.name = name;
     }
 
-    public void updateProfile(String name, String bankName, String accountNumber){
-        if(name != null){
-            this.name = name;
-        }
-        if(bankName != null){
-            this.bankName = bankName;
-        }
-        if(accountNumber != null){
-            this.accountNumber = accountNumber;
-        }
-    }
 
     public void updateFcmToken(String token) {
         this.fcmToken = token;
     }
 }
-

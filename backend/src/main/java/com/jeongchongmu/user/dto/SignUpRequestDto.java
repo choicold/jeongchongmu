@@ -21,4 +21,10 @@ public class SignUpRequestDto {
 
     @NotBlank(message = "이름은 필수 입력값입니다.")
     private String name;
+
+    @NotBlank(message = "은행명은 필수 입력값입니다.")
+    private String bankName;
+
+    @NotBlank(message = "계좌번호는 필수 입력값입니다.")
+    private String accountNumber;
 }

@@ -27,6 +27,9 @@ public class UserService {
 
         User user = User.builder()
                         .email(signUpRequestDto.getEmail())
+                        .fcmToken("ex-token")
+                        .bankName(signUpRequestDto.getBankName())
+                        .accountNumber(signUpRequestDto.getAccountNumber())
                         .password(encodedPassword)
                         .name(signUpRequestDto.getName()).build();
 

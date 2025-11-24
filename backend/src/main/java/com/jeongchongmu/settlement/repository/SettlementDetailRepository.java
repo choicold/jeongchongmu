@@ -9,4 +9,5 @@ public interface SettlementDetailRepository extends JpaRepository<SettlementDeta
     // 여기도 마찬가지로 기본 메서드 외에
     // 특별히 추가할 것은 당장 없음.
 
+
 }

@@ -6,6 +6,7 @@ import com.jeongchongmu.user.User;
 import jakarta.persistence.*;
 import lombok.*;
 
+
 @Entity
 @Table(name = "settlement_details")
 @Getter
@@ -48,4 +49,6 @@ public class SettlementDetail extends BaseEntity {
     public void addAmount(Long amountToAdd) {
         this.amount += amountToAdd;
     }
+
 }
+
