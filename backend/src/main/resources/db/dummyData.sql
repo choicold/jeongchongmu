@@ -1,19 +1,153 @@
 -- ============================================================
--- [1] 초기화: 기존 데이터 싹 비우기 (순서 중요)
+-- [1] 초기화: 기존 테이블 싹 삭제 (순서 중요, CASCADE로 의존성 무시)
 -- ============================================================
-TRUNCATE TABLE settlement_details, settlements, expense_participants, expense_items, expense_tags, tags, expenses, group_members, groups, users RESTART IDENTITY CASCADE;
+DROP TABLE IF EXISTS settlement_details CASCADE;
+DROP TABLE IF EXISTS settlements CASCADE;
+DROP TABLE IF EXISTS expense_tags CASCADE;
+DROP TABLE IF EXISTS expense_participants CASCADE;
+DROP TABLE IF EXISTS expense_items CASCADE;
+DROP TABLE IF EXISTS expenses CASCADE;
+DROP TABLE IF EXISTS tags CASCADE;
+DROP TABLE IF EXISTS group_members CASCADE;
+DROP TABLE IF EXISTS groups CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
+
+-- ============================================================
+-- [2] 테이블 재생성 (ID 자동 증가 & BigInt 설정 완벽 적용)
+-- ============================================================
+
+-- 1. Users
+CREATE TABLE users (
+                       id bigserial PRIMARY KEY,
+                       email varchar(255) NOT NULL UNIQUE,
+                       password varchar(255) NOT NULL,
+                       name varchar(255) NOT NULL,
+                       fcm_token varchar(255),
+                       bank_name varchar(255),
+                       account_number varchar(255),
+                       created_at timestamp(6),
+                       updated_at timestamp(6)
+);
+
+-- 2. Groups
+CREATE TABLE groups (
+                        id bigserial PRIMARY KEY,
+                        name varchar(255) NOT NULL,
+                        description varchar(1000),
+                        creator_id bigint NOT NULL,
+                        invite_code varchar(255) UNIQUE,
+                        created_at timestamp(6),
+                        updated_at timestamp(6)
+);
+
+-- 3. GroupMembers
+CREATE TABLE group_members (
+                               id bigserial PRIMARY KEY,
+                               group_id bigint NOT NULL,
+                               user_id bigint NOT NULL,
+                               role varchar(255) NOT NULL,
+                               created_at timestamp(6),
+                               updated_at timestamp(6),
+                               CONSTRAINT uk_user_group UNIQUE (user_id, group_id)
+);
+
+-- 4. Tags
+CREATE TABLE tags (
+                      id bigserial PRIMARY KEY,
+                      name varchar(255),
+                      group_id bigint NOT NULL
+);
+
+-- 5. Expenses (Amount는 BigInt로 설정)
+CREATE TABLE expenses (
+                          id bigserial PRIMARY KEY,
+                          group_id bigint NOT NULL,
+                          payer_id bigint NOT NULL,
+                          title varchar(255) NOT NULL,
+                          amount bigint NOT NULL, -- Java Long 타입 대응
+                          expense_data timestamp(6),
+                          created_at timestamp(6),
+                          updated_at timestamp(6)
+);
+
+-- 6. ExpenseItems
+CREATE TABLE expense_items (
+                               id bigserial PRIMARY KEY,
+                               expense_id bigint NOT NULL,
+                               name varchar(255) NOT NULL,
+                               price bigint NOT NULL, -- Java Long 타입 대응
+                               quantity integer NOT NULL
+);
+
+-- 7. ExpenseParticipants
+CREATE TABLE expense_participants (
+                                      expense_id bigint NOT NULL,
+                                      user_id bigint NOT NULL,
+                                      PRIMARY KEY (expense_id, user_id)
+);
+
+-- 8. ExpenseTags
+CREATE TABLE expense_tags (
+                              expense_id bigint NOT NULL,
+                              tag_id bigint NOT NULL,
+                              PRIMARY KEY (expense_id, tag_id)
+);
+
+-- 9. Settlements (정산 마스터)
+CREATE TABLE settlements (
+                             id bigserial PRIMARY KEY,
+                             expense_id bigint NOT NULL UNIQUE,
+                             method varchar(255) NOT NULL,
+                             status varchar(255) NOT NULL,
+                             deadline timestamp(6),
+                             created_at timestamp(6),
+                             updated_at timestamp(6)
+);
+
+-- 10. SettlementDetails (정산 상세)
+CREATE TABLE settlement_details (
+                                    id bigserial PRIMARY KEY,
+                                    settlement_id bigint NOT NULL,
+                                    debtor_id bigint NOT NULL,
+                                    creditor_id bigint NOT NULL,
+                                    amount bigint NOT NULL, -- Java Long 타입 대응
+                                    is_sent boolean NOT NULL DEFAULT false,
+                                    created_at timestamp(6),
+                                    updated_at timestamp(6)
+);
+
+-- ============================================================
+-- [3] 외래키(FK) 연결
+-- ============================================================
+ALTER TABLE groups ADD CONSTRAINT fk_groups_creator FOREIGN KEY (creator_id) REFERENCES users (id);
+ALTER TABLE group_members ADD CONSTRAINT fk_gm_group FOREIGN KEY (group_id) REFERENCES groups (id);
+ALTER TABLE group_members ADD CONSTRAINT fk_gm_user FOREIGN KEY (user_id) REFERENCES users (id);
+ALTER TABLE tags ADD CONSTRAINT fk_tags_group FOREIGN KEY (group_id) REFERENCES groups (id);
+ALTER TABLE expenses ADD CONSTRAINT fk_expenses_group FOREIGN KEY (group_id) REFERENCES groups (id);
+ALTER TABLE expenses ADD CONSTRAINT fk_expenses_payer FOREIGN KEY (payer_id) REFERENCES users (id);
+ALTER TABLE expense_items ADD CONSTRAINT fk_items_expense FOREIGN KEY (expense_id) REFERENCES expenses (id);
+ALTER TABLE expense_participants ADD CONSTRAINT fk_ep_expense FOREIGN KEY (expense_id) REFERENCES expenses (id);
+ALTER TABLE expense_participants ADD CONSTRAINT fk_ep_user FOREIGN KEY (user_id) REFERENCES users (id);
+ALTER TABLE expense_tags ADD CONSTRAINT fk_et_expense FOREIGN KEY (expense_id) REFERENCES expenses (id);
+ALTER TABLE expense_tags ADD CONSTRAINT fk_et_tag FOREIGN KEY (tag_id) REFERENCES tags (id);
+ALTER TABLE settlements ADD CONSTRAINT fk_settlements_expense FOREIGN KEY (expense_id) REFERENCES expenses (id);
+ALTER TABLE settlement_details ADD CONSTRAINT fk_sd_settlement FOREIGN KEY (settlement_id) REFERENCES settlements (id);
+ALTER TABLE settlement_details ADD CONSTRAINT fk_sd_debtor FOREIGN KEY (debtor_id) REFERENCES users (id);
+ALTER TABLE settlement_details ADD CONSTRAINT fk_sd_creditor FOREIGN KEY (creditor_id) REFERENCES users (id);
 
 
 -- ============================================================
--- [2] 기초 데이터 생성 (User & Group) - 하드코딩으로 깔끔하게
+-- [4] 데이터 채워넣기 (Mock Data)
 -- ============================================================
--- 1. 유저 5명 생성 (비밀번호는 '1234'의 암호화된 값)
-INSERT INTO users (email, password, name, created_at) VALUES
-                                                          ('u1@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '김지성', NOW()),
-                                                          ('u2@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '방경환', NOW()),
-                                                          ('u3@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '이선용', NOW()),
-                                                          ('u4@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '최한기', NOW()),
-                                                          ('u5@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '정총무', NOW());
+
+-- 1. 유저 5명 생성
+INSERT INTO users (email, password, name, fcm_token, created_at) VALUES
+                                                                     ('u1@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '김지성', 'dummy_token_1', NOW()),
+                                                                     ('u2@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '방경환', 'dummy_token_2', NOW()),
+                                                                     ('u3@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '이선용', 'dummy_token_3', NOW()),
+                                                                     ('u4@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '최한기', 'dummy_token_4', NOW()),
+                                                                     ('u5@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '정총무', 'dummy_token_5', NOW());
 
 -- 2. 그룹 3개 생성
 INSERT INTO groups (name, description, creator_id, invite_code, created_at) VALUES
@@ -21,1081 +155,103 @@ INSERT INTO groups (name, description, creator_id, invite_code, created_at) VALU
                                                                                 ('맛집 탐방대', '맛있는거 먹으러 다니는 모임', 2, 'INVITE02', NOW()),
                                                                                 ('제주도 여행', '12월 제주도 여행 정산방', 3, 'INVITE03', NOW());
 
--- 3. 그룹 멤버 자동 주입 (모든 유저를 모든 그룹에 가입시킴 - 통계 테스트 용이)
+-- 3. 그룹 멤버 자동 주입
 INSERT INTO group_members (user_id, group_id, role, created_at)
 SELECT u.id, g.id, 'MEMBER', NOW()
 FROM users u CROSS JOIN groups g;
 
--- 4. 태그(카테고리) 생성
+-- 4. 태그 생성
 INSERT INTO tags (name, group_id)
 SELECT t.name, g.id
 FROM (VALUES ('식비'), ('교통'), ('숙박'), ('쇼핑'), ('술')) AS t(name)
          CROSS JOIN groups g;
 
+-- 5. 지출 1000개 자동 생성 (금액 BIGINT 처리)
+INSERT INTO expenses (group_id, payer_id, title, amount, expense_data, created_at)
+SELECT
+    floor(random() * 3 + 1)::bigint,
+    floor(random() * 5 + 1)::bigint,
+    (ARRAY['점심 식사', '저녁 회식', '스타벅스', '택시비', '숙소 결제', '이마트', '편의점', '비행기표', '렌트카'])[floor(random() * 9 + 1)],
+    (floor(random() * 100 + 1) * 1000)::bigint, -- Long 타입에 맞게 bigint 캐스팅
+    NOW() - (floor(random() * 30) || ' days')::interval,
+    NOW()
+FROM generate_series(1, 1000);
 
--- ============================================================
--- [3] Mockaroo 데이터 영역
--- ============================================================
-
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (1, 3, 3, '2차 술값', 47070, '2025-09-12', '2025-11-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (2, 2, 3, '숙소 결제', 31805, '2025-11-15', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (3, 3, 2, '주유비', 21834, '2025-09-03', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (4, 3, 1, '저녁 회식', 14564, '2025-11-16', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (5, 3, 5, '렌트카', 27857, '2025-10-25', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (6, 1, 4, '점심 식사', 37030, '2025-11-11', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (7, 1, 2, '택시비', 27676, '2025-09-08', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (8, 1, 3, '점심 식사', 33317, '2025-10-26', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (9, 2, 3, '스타벅스', 33228, '2025-11-09', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (10, 3, 5, '이마트', 30389, '2025-10-21', '2025-09-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (11, 2, 3, '카페', 39228, '2025-10-24', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (12, 3, 5, '편의점', 40228, '2025-09-10', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (13, 1, 3, '노래방', 16935, '2025-09-12', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (14, 3, 3, '노래방', 28594, '2025-09-08', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (15, 2, 4, '렌트카', 23706, '2025-11-05', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (16, 2, 5, '이마트', 34841, '2025-09-25', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (17, 3, 3, '편의점', 39289, '2025-10-23', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (18, 3, 5, '비행기표', 25230, '2025-11-08', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (19, 1, 2, '점심 식사', 43066, '2025-10-13', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (20, 1, 4, '택시비', 21929, '2025-09-20', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (21, 1, 5, '이마트', 45108, '2025-10-29', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (22, 2, 2, '2차 술값', 30460, '2025-11-08', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (23, 2, 3, '비행기표', 39252, '2025-09-15', '2025-09-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (24, 2, 5, '택시비', 23549, '2025-09-18', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (25, 3, 3, '점심 식사', 38165, '2025-11-09', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (26, 3, 2, '스타벅스', 48605, '2025-09-12', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (27, 1, 1, '노래방', 11575, '2025-09-19', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (28, 1, 2, '2차 술값', 21139, '2025-09-13', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (29, 3, 5, '2차 술값', 31189, '2025-10-19', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (30, 1, 5, '노래방', 40944, '2025-10-21', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (31, 1, 5, '점심 식사', 28660, '2025-09-05', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (32, 2, 1, '편의점', 25710, '2025-11-19', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (33, 2, 5, '이마트', 9311, '2025-10-24', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (34, 2, 2, '숙소 결제', 37774, '2025-10-22', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (35, 2, 4, '비행기표', 26959, '2025-09-27', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (36, 1, 5, '점심 식사', 42504, '2025-10-29', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (37, 2, 5, '저녁 회식', 18485, '2025-10-23', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (38, 1, 3, '주유비', 45128, '2025-11-01', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (39, 3, 1, '노래방', 26543, '2025-09-19', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (40, 2, 5, '점심 식사', 16697, '2025-09-08', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (41, 1, 5, '노래방', 30491, '2025-11-11', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (42, 3, 1, '노래방', 43546, '2025-11-16', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (43, 2, 3, '편의점', 21656, '2025-09-09', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (44, 2, 3, '비행기표', 19741, '2025-09-27', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (45, 1, 3, '이마트', 49336, '2025-09-11', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (46, 2, 1, '숙소 결제', 6825, '2025-11-12', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (47, 3, 4, '배달음식', 31618, '2025-09-26', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (48, 3, 1, '이마트', 33383, '2025-11-17', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (49, 3, 1, '주유비', 42764, '2025-10-31', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (50, 1, 1, '편의점', 30107, '2025-09-03', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (51, 1, 5, '2차 술값', 26055, '2025-09-08', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (52, 3, 5, '2차 술값', 44542, '2025-10-19', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (53, 1, 4, '편의점', 35082, '2025-10-25', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (54, 2, 1, '카페', 52179, '2025-09-09', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (55, 2, 5, '이마트', 36335, '2025-09-07', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (56, 2, 4, '카페', 33156, '2025-10-29', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (57, 2, 3, '이마트', 20918, '2025-10-22', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (58, 2, 2, '저녁 회식', 30265, '2025-09-24', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (59, 1, 1, '편의점', 17716, '2025-11-04', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (60, 2, 1, '비행기표', 26530, '2025-10-09', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (61, 1, 3, '이마트', 32031, '2025-09-07', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (62, 3, 3, '주유비', 31874, '2025-09-21', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (63, 2, 4, '택시비', 15504, '2025-09-22', '2025-10-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (64, 2, 2, '주유비', 51371, '2025-10-26', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (65, 1, 1, '렌트카', 21607, '2025-10-29', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (66, 1, 3, '숙소 결제', 39650, '2025-11-01', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (67, 3, 5, '렌트카', 43927, '2025-10-24', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (68, 1, 5, '렌트카', 22993, '2025-09-20', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (69, 1, 3, '배달음식', 39945, '2025-09-24', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (70, 1, 3, '노래방', 27635, '2025-10-12', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (71, 1, 2, '저녁 회식', 22201, '2025-10-30', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (72, 3, 5, '비행기표', 40419, '2025-10-27', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (73, 3, 5, '주유비', 37278, '2025-11-14', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (74, 2, 4, '비행기표', 14419, '2025-11-08', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (75, 1, 2, '택시비', 38967, '2025-10-18', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (76, 3, 2, '점심 식사', 31221, '2025-10-25', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (77, 1, 5, '렌트카', 34524, '2025-10-07', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (78, 1, 5, '스타벅스', 34277, '2025-09-09', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (79, 2, 3, '스타벅스', 27172, '2025-10-27', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (80, 2, 1, '노래방', 20243, '2025-10-23', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (81, 1, 2, '노래방', 17398, '2025-11-09', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (82, 3, 4, '노래방', 39530, '2025-09-09', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (83, 3, 1, '스타벅스', 37163, '2025-09-01', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (84, 2, 2, '이마트', 31592, '2025-09-22', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (85, 3, 2, '카페', 15857, '2025-10-20', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (86, 1, 4, '편의점', 35398, '2025-11-07', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (87, 2, 3, '2차 술값', 13613, '2025-10-15', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (88, 2, 2, '2차 술값', 35521, '2025-10-05', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (89, 2, 1, '숙소 결제', 41882, '2025-10-24', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (90, 2, 3, '스타벅스', 13442, '2025-09-19', '2025-09-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (91, 2, 2, '카페', 31990, '2025-10-22', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (92, 3, 5, '2차 술값', 23916, '2025-10-26', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (93, 1, 2, '점심 식사', 23079, '2025-09-07', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (94, 1, 3, '숙소 결제', 28462, '2025-09-10', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (95, 3, 3, '스타벅스', 39696, '2025-10-03', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (96, 2, 4, '이마트', 36291, '2025-09-08', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (97, 3, 3, '카페', 19957, '2025-09-18', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (98, 3, 1, '스타벅스', 35589, '2025-11-18', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (99, 2, 1, '점심 식사', 19515, '2025-10-16', '2025-09-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (100, 1, 1, '스타벅스', 51639, '2025-11-02', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (101, 3, 2, '비행기표', 29358, '2025-09-09', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (102, 2, 4, '점심 식사', 27737, '2025-09-01', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (103, 1, 5, '택시비', 31137, '2025-10-14', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (104, 1, 1, '이마트', 25170, '2025-09-04', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (105, 1, 4, '노래방', 35815, '2025-11-03', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (106, 2, 1, '노래방', 43584, '2025-11-19', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (107, 2, 3, '스타벅스', 26460, '2025-09-27', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (108, 2, 3, '카페', 42677, '2025-10-08', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (109, 3, 5, '숙소 결제', 32685, '2025-09-10', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (110, 2, 2, '이마트', 21785, '2025-09-24', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (111, 2, 4, '렌트카', 31030, '2025-10-07', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (112, 1, 2, '이마트', 26653, '2025-10-08', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (113, 3, 3, '렌트카', 28677, '2025-09-05', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (114, 3, 5, '저녁 회식', 35323, '2025-11-03', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (115, 3, 5, '렌트카', 21300, '2025-09-27', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (116, 2, 1, '저녁 회식', 32582, '2025-11-12', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (117, 3, 1, '저녁 회식', 21102, '2025-09-11', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (118, 2, 4, '스타벅스', 34540, '2025-11-05', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (119, 2, 1, '주유비', 47155, '2025-11-02', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (120, 2, 5, '주유비', 34152, '2025-11-10', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (121, 2, 2, '노래방', 31621, '2025-11-04', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (122, 3, 3, '2차 술값', 23063, '2025-11-02', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (123, 1, 5, '이마트', 40818, '2025-11-10', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (124, 3, 2, '스타벅스', 35621, '2025-10-06', '2025-09-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (125, 2, 5, '편의점', 29474, '2025-09-27', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (126, 2, 4, '택시비', 34546, '2025-09-10', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (127, 2, 2, '이마트', 26095, '2025-10-16', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (128, 2, 1, '스타벅스', 32772, '2025-11-08', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (129, 1, 5, '노래방', 45298, '2025-11-02', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (130, 3, 5, '카페', 28879, '2025-09-16', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (131, 1, 4, '배달음식', 29353, '2025-09-04', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (132, 1, 3, '주유비', 30242, '2025-09-29', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (133, 1, 4, '노래방', 33255, '2025-09-02', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (134, 1, 1, '저녁 회식', 20101, '2025-09-12', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (135, 1, 3, '주유비', 20355, '2025-09-22', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (136, 3, 3, '점심 식사', 14629, '2025-10-10', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (137, 3, 2, '이마트', 47968, '2025-10-22', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (138, 2, 2, '이마트', 22209, '2025-10-24', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (139, 2, 4, '카페', 30702, '2025-10-22', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (140, 3, 2, '이마트', 14632, '2025-10-11', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (141, 1, 4, '2차 술값', 43066, '2025-09-10', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (142, 1, 2, '점심 식사', 53582, '2025-10-16', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (143, 1, 1, '2차 술값', 16093, '2025-10-23', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (144, 2, 1, '스타벅스', 45545, '2025-09-25', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (145, 1, 5, '점심 식사', 20745, '2025-11-17', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (146, 3, 5, '편의점', 33294, '2025-10-30', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (147, 3, 2, '이마트', 41859, '2025-09-13', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (148, 1, 5, '택시비', 26147, '2025-09-27', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (149, 2, 4, '숙소 결제', 49995, '2025-10-28', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (150, 1, 3, '노래방', 35909, '2025-10-06', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (151, 3, 4, '주유비', 42564, '2025-09-26', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (152, 2, 5, '편의점', 34042, '2025-11-16', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (153, 2, 4, '이마트', 28720, '2025-09-27', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (154, 3, 4, '이마트', 25304, '2025-11-01', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (155, 2, 3, '주유비', 15033, '2025-09-11', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (156, 3, 3, '이마트', 22541, '2025-09-21', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (157, 2, 1, '비행기표', 17519, '2025-11-06', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (158, 1, 2, '비행기표', 10213, '2025-11-02', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (159, 2, 2, '배달음식', 26529, '2025-09-11', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (160, 1, 1, '숙소 결제', 35111, '2025-11-16', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (161, 3, 4, '택시비', 24161, '2025-10-06', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (162, 3, 4, '배달음식', 28532, '2025-10-13', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (163, 1, 4, '점심 식사', 24174, '2025-09-14', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (164, 1, 3, '스타벅스', 26379, '2025-11-20', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (165, 2, 5, '점심 식사', 37415, '2025-11-06', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (166, 2, 1, '숙소 결제', 29348, '2025-10-09', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (167, 2, 5, '숙소 결제', 18957, '2025-10-21', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (168, 2, 2, '이마트', 31285, '2025-11-05', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (169, 1, 5, '비행기표', 20525, '2025-11-12', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (170, 1, 2, '택시비', 24618, '2025-09-30', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (171, 2, 2, '이마트', 33064, '2025-10-22', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (172, 3, 5, '택시비', 35952, '2025-10-08', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (173, 1, 3, '카페', 17238, '2025-11-04', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (174, 1, 2, '점심 식사', 34652, '2025-09-11', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (175, 2, 1, '이마트', 43541, '2025-09-14', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (176, 3, 5, '노래방', 19634, '2025-09-29', '2025-11-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (177, 1, 2, '스타벅스', 29069, '2025-09-26', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (178, 3, 5, '숙소 결제', 26837, '2025-10-01', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (179, 3, 5, '택시비', 11523, '2025-09-19', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (180, 3, 3, '2차 술값', 33114, '2025-09-07', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (181, 2, 1, '스타벅스', 36303, '2025-09-17', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (182, 1, 5, '비행기표', 25006, '2025-11-01', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (183, 2, 4, '비행기표', 32613, '2025-10-16', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (184, 1, 2, '노래방', 8029, '2025-11-19', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (185, 1, 1, '택시비', 41170, '2025-10-12', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (186, 2, 1, '렌트카', 31146, '2025-09-13', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (187, 3, 4, '주유비', 19593, '2025-11-16', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (188, 3, 4, '주유비', 38938, '2025-11-05', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (189, 2, 4, '비행기표', 53745, '2025-10-16', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (190, 2, 4, '숙소 결제', 36766, '2025-09-11', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (191, 2, 2, '비행기표', 43933, '2025-09-03', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (192, 2, 5, '카페', 18605, '2025-10-12', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (193, 1, 1, '저녁 회식', 20456, '2025-09-25', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (194, 2, 3, '2차 술값', 36429, '2025-10-17', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (195, 1, 2, '카페', 25145, '2025-11-07', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (196, 1, 2, '2차 술값', 22241, '2025-10-16', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (197, 3, 2, '편의점', 30099, '2025-09-20', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (198, 1, 2, '이마트', 24245, '2025-11-16', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (199, 2, 2, '카페', 35184, '2025-11-19', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (200, 2, 3, '노래방', 41829, '2025-11-08', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (201, 3, 1, '숙소 결제', 36179, '2025-09-20', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (202, 2, 4, '렌트카', 9631, '2025-10-19', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (203, 2, 2, '카페', 36818, '2025-10-14', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (204, 1, 1, '편의점', 33050, '2025-11-13', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (205, 1, 3, '스타벅스', 36529, '2025-11-03', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (206, 2, 2, '저녁 회식', 25212, '2025-11-18', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (207, 3, 1, '스타벅스', 38229, '2025-09-12', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (208, 1, 4, '노래방', 27860, '2025-10-26', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (209, 2, 2, '렌트카', 35961, '2025-10-14', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (210, 3, 5, '저녁 회식', 13629, '2025-10-19', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (211, 3, 1, '노래방', 13537, '2025-09-13', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (212, 2, 3, '편의점', 35190, '2025-09-24', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (213, 2, 3, '카페', 25739, '2025-11-05', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (214, 3, 2, '렌트카', 23848, '2025-10-18', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (215, 2, 5, '스타벅스', 24357, '2025-09-15', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (216, 2, 4, '택시비', 26902, '2025-10-13', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (217, 1, 3, '숙소 결제', 36197, '2025-11-16', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (218, 2, 2, '비행기표', 46107, '2025-10-19', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (219, 1, 1, '노래방', 26051, '2025-10-28', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (220, 1, 1, '이마트', 29694, '2025-09-12', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (221, 3, 5, '편의점', 30913, '2025-09-07', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (222, 1, 4, '저녁 회식', 48973, '2025-11-07', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (223, 2, 5, '렌트카', 24217, '2025-10-29', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (224, 3, 4, '점심 식사', 21905, '2025-11-07', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (225, 2, 4, '2차 술값', 11436, '2025-09-16', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (226, 1, 4, '노래방', 36869, '2025-09-20', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (227, 2, 5, '이마트', 21260, '2025-10-20', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (228, 1, 3, '주유비', 30314, '2025-09-20', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (229, 3, 2, '점심 식사', 37933, '2025-09-05', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (230, 2, 4, '이마트', 25042, '2025-11-19', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (231, 3, 5, '점심 식사', 32245, '2025-10-16', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (232, 2, 2, '숙소 결제', 27065, '2025-09-09', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (233, 1, 4, '2차 술값', 31999, '2025-11-09', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (234, 1, 3, '카페', 47662, '2025-10-27', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (235, 1, 1, '저녁 회식', 17103, '2025-10-24', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (236, 2, 5, '카페', 30211, '2025-10-04', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (237, 2, 3, '렌트카', 17568, '2025-11-17', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (238, 2, 1, '저녁 회식', 27513, '2025-10-20', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (239, 1, 5, '카페', 28574, '2025-11-09', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (240, 1, 2, '편의점', 34017, '2025-10-22', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (241, 2, 1, '저녁 회식', 38354, '2025-10-10', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (242, 3, 2, '스타벅스', 30985, '2025-11-18', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (243, 1, 2, '택시비', 32474, '2025-11-02', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (244, 3, 4, '스타벅스', 25168, '2025-10-20', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (245, 3, 5, '스타벅스', 27890, '2025-11-04', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (246, 2, 4, '숙소 결제', 29160, '2025-09-29', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (247, 3, 5, '숙소 결제', 32606, '2025-09-28', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (248, 1, 5, '편의점', 28177, '2025-09-13', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (249, 2, 1, '노래방', 33529, '2025-10-08', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (250, 1, 3, '카페', 31595, '2025-11-18', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (251, 1, 1, '숙소 결제', 32011, '2025-11-14', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (252, 3, 4, '점심 식사', 38522, '2025-09-20', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (253, 1, 4, '렌트카', 43861, '2025-10-06', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (254, 1, 2, '저녁 회식', 34541, '2025-09-11', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (255, 2, 5, '노래방', 26875, '2025-09-07', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (256, 1, 4, '카페', 28175, '2025-09-22', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (257, 1, 4, '점심 식사', 28915, '2025-09-10', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (258, 3, 3, '숙소 결제', 23609, '2025-10-02', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (259, 2, 2, '숙소 결제', 40683, '2025-09-22', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (260, 1, 5, '점심 식사', 40283, '2025-10-30', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (261, 3, 1, '배달음식', 32262, '2025-11-17', '2025-09-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (262, 3, 2, '렌트카', 27156, '2025-09-23', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (263, 1, 3, '비행기표', 33934, '2025-09-25', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (264, 3, 4, '점심 식사', 27960, '2025-10-09', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (265, 3, 4, '저녁 회식', 41386, '2025-10-09', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (266, 2, 4, '비행기표', 17809, '2025-10-26', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (267, 3, 1, '배달음식', 49312, '2025-11-17', '2025-10-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (268, 1, 4, '이마트', 4725, '2025-09-27', '2025-10-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (269, 1, 3, '점심 식사', 40724, '2025-11-07', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (270, 3, 4, '점심 식사', 13992, '2025-09-14', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (271, 1, 5, '2차 술값', 28287, '2025-10-04', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (272, 3, 1, '숙소 결제', 38674, '2025-10-01', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (273, 1, 4, '주유비', 13051, '2025-10-14', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (274, 3, 3, '노래방', 24148, '2025-10-25', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (275, 3, 5, '카페', 14128, '2025-11-09', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (276, 2, 1, '숙소 결제', 33558, '2025-11-09', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (277, 1, 1, '점심 식사', 26055, '2025-09-26', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (278, 2, 4, '편의점', 18504, '2025-09-11', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (279, 1, 3, '스타벅스', 23845, '2025-09-22', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (280, 1, 3, '편의점', 30374, '2025-10-27', '2025-11-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (281, 2, 2, '숙소 결제', -242, '2025-11-09', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (282, 2, 1, '이마트', 38607, '2025-10-26', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (283, 3, 5, '노래방', 26048, '2025-10-26', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (284, 3, 4, '주유비', 28388, '2025-10-06', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (285, 1, 4, '저녁 회식', 43338, '2025-10-08', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (286, 3, 2, '2차 술값', 21123, '2025-09-21', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (287, 2, 5, '스타벅스', 23398, '2025-09-26', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (288, 2, 2, '스타벅스', 35466, '2025-10-17', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (289, 1, 4, '카페', 32387, '2025-10-31', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (290, 2, 2, '비행기표', 25878, '2025-09-09', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (291, 1, 3, '렌트카', 24189, '2025-10-07', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (292, 3, 5, '주유비', 24526, '2025-09-01', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (293, 3, 2, '편의점', 26944, '2025-09-11', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (294, 3, 4, '렌트카', 9427, '2025-11-07', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (295, 3, 2, '노래방', 49132, '2025-09-19', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (296, 2, 3, '렌트카', 32768, '2025-09-25', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (297, 1, 2, '렌트카', 28525, '2025-09-11', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (298, 2, 3, '2차 술값', 36192, '2025-10-30', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (299, 3, 1, '택시비', 40925, '2025-10-16', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (300, 3, 1, '비행기표', 19408, '2025-09-02', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (301, 1, 1, '점심 식사', 43389, '2025-09-20', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (302, 2, 2, '택시비', 8444, '2025-09-03', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (303, 3, 4, '편의점', 23882, '2025-10-19', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (304, 1, 4, '편의점', 28063, '2025-10-12', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (305, 3, 4, '렌트카', 35540, '2025-11-01', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (306, 3, 2, '편의점', 44245, '2025-10-05', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (307, 3, 2, '카페', 32783, '2025-11-06', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (308, 2, 5, '주유비', 33608, '2025-09-02', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (309, 1, 5, '스타벅스', 34065, '2025-09-04', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (310, 1, 5, '편의점', 39438, '2025-11-10', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (311, 3, 3, '점심 식사', 37743, '2025-09-19', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (312, 2, 1, '카페', 22156, '2025-11-04', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (313, 1, 3, '숙소 결제', 34004, '2025-09-06', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (314, 2, 3, '카페', 39421, '2025-09-10', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (315, 3, 5, '편의점', 22251, '2025-10-29', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (316, 3, 5, '2차 술값', 21790, '2025-10-05', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (317, 3, 5, '스타벅스', 35694, '2025-09-19', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (318, 2, 4, '노래방', 38835, '2025-09-03', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (319, 3, 3, '점심 식사', 30991, '2025-10-27', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (320, 1, 3, '이마트', 25617, '2025-09-03', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (321, 2, 1, '이마트', 27945, '2025-11-08', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (322, 2, 4, '이마트', 35583, '2025-10-30', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (323, 1, 4, '2차 술값', 23890, '2025-10-28', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (324, 1, 5, '숙소 결제', 20368, '2025-10-19', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (325, 3, 3, '카페', 26334, '2025-11-07', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (326, 3, 3, '비행기표', 34570, '2025-09-13', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (327, 1, 5, '카페', 36407, '2025-09-26', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (328, 2, 4, '스타벅스', 34284, '2025-10-01', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (329, 1, 5, '카페', 13862, '2025-10-31', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (330, 2, 3, '2차 술값', 20125, '2025-10-22', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (331, 1, 3, '노래방', 38796, '2025-11-01', '2025-09-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (332, 2, 1, '저녁 회식', 14213, '2025-11-02', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (333, 3, 3, '비행기표', 21247, '2025-09-01', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (334, 1, 4, '편의점', 55245, '2025-10-23', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (335, 2, 2, '저녁 회식', 27666, '2025-09-12', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (336, 1, 2, '배달음식', 33509, '2025-10-01', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (337, 1, 3, '2차 술값', 31533, '2025-10-01', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (338, 1, 3, '주유비', 44924, '2025-09-15', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (339, 1, 5, '점심 식사', 17866, '2025-10-28', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (340, 2, 4, '스타벅스', 15982, '2025-11-15', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (341, 3, 2, '렌트카', 34805, '2025-10-16', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (342, 1, 1, '렌트카', 26685, '2025-09-01', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (343, 2, 2, '편의점', 42060, '2025-09-04', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (344, 2, 5, '2차 술값', 32128, '2025-10-16', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (345, 3, 1, '렌트카', 10692, '2025-10-20', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (346, 1, 4, '2차 술값', 29267, '2025-10-02', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (347, 1, 4, '배달음식', 40027, '2025-10-11', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (348, 2, 5, '숙소 결제', 29511, '2025-10-20', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (349, 1, 2, '주유비', 30709, '2025-09-22', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (350, 1, 3, '이마트', 34013, '2025-09-07', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (351, 2, 2, '택시비', 37934, '2025-09-16', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (352, 2, 3, '택시비', 25251, '2025-10-28', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (353, 3, 1, '저녁 회식', 27626, '2025-11-11', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (354, 2, 1, '택시비', 36215, '2025-10-24', '2025-10-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (355, 1, 2, '카페', 45552, '2025-11-17', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (356, 3, 4, '숙소 결제', 24537, '2025-11-01', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (357, 3, 1, '저녁 회식', 28830, '2025-09-13', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (358, 2, 1, '비행기표', 39268, '2025-09-05', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (359, 2, 2, '렌트카', 44940, '2025-09-30', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (360, 2, 4, '카페', 21777, '2025-11-02', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (361, 2, 1, '저녁 회식', 20129, '2025-11-18', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (362, 3, 3, '스타벅스', 28151, '2025-11-04', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (363, 3, 4, '점심 식사', 19109, '2025-10-03', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (364, 2, 1, '노래방', 34360, '2025-09-16', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (365, 1, 1, '2차 술값', 29301, '2025-09-30', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (366, 2, 2, '배달음식', 37555, '2025-11-09', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (367, 1, 5, '택시비', 37216, '2025-09-17', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (368, 3, 4, '저녁 회식', 39048, '2025-09-27', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (369, 2, 5, '편의점', 7947, '2025-11-20', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (370, 2, 3, '이마트', 28037, '2025-09-23', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (371, 1, 4, '노래방', 29277, '2025-09-23', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (372, 2, 1, '노래방', 30346, '2025-10-15', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (373, 2, 3, '노래방', 36306, '2025-11-15', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (374, 3, 3, '숙소 결제', 37185, '2025-11-09', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (375, 1, 1, '편의점', 31122, '2025-11-08', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (376, 2, 4, '이마트', 27532, '2025-10-07', '2025-09-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (377, 1, 2, '노래방', 18816, '2025-11-12', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (378, 2, 3, '택시비', 27952, '2025-09-08', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (379, 2, 4, '점심 식사', 16368, '2025-11-02', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (380, 2, 1, '렌트카', 34780, '2025-09-25', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (381, 1, 1, '주유비', 17981, '2025-11-15', '2025-10-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (382, 1, 1, '저녁 회식', 30572, '2025-10-04', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (383, 2, 3, '렌트카', 16923, '2025-11-05', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (384, 2, 3, '카페', 33494, '2025-09-16', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (385, 1, 4, '택시비', 25320, '2025-10-11', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (386, 3, 1, '점심 식사', 24542, '2025-11-05', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (387, 1, 5, '숙소 결제', 39247, '2025-11-03', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (388, 3, 5, '편의점', 22098, '2025-10-30', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (389, 2, 1, '숙소 결제', 13528, '2025-09-20', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (390, 2, 1, '카페', 24455, '2025-10-25', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (391, 1, 2, '렌트카', 46787, '2025-10-23', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (392, 3, 5, '점심 식사', 19097, '2025-09-08', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (393, 3, 3, '주유비', 19048, '2025-10-31', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (394, 2, 1, '편의점', 47641, '2025-11-03', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (395, 2, 3, '숙소 결제', 58029, '2025-10-29', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (396, 2, 4, '노래방', 14886, '2025-09-10', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (397, 1, 1, '스타벅스', 42461, '2025-10-28', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (398, 1, 3, '편의점', 23131, '2025-09-27', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (399, 1, 3, '편의점', 28477, '2025-10-05', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (400, 2, 4, '노래방', 23758, '2025-11-02', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (401, 2, 3, '주유비', 29620, '2025-10-07', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (402, 3, 2, '카페', 19483, '2025-09-18', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (403, 1, 5, '스타벅스', 20945, '2025-11-10', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (404, 1, 3, '주유비', 23189, '2025-10-22', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (405, 2, 2, '노래방', 41281, '2025-11-11', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (406, 3, 4, '편의점', 37955, '2025-10-03', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (407, 1, 2, '저녁 회식', 36087, '2025-10-29', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (408, 2, 5, '이마트', 24664, '2025-09-17', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (409, 2, 5, '주유비', 35747, '2025-09-15', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (410, 1, 2, '이마트', 28084, '2025-11-16', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (411, 1, 4, '노래방', 20324, '2025-11-08', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (412, 1, 3, '비행기표', 29612, '2025-11-09', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (413, 3, 5, '비행기표', 22686, '2025-11-19', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (414, 2, 5, '2차 술값', 22438, '2025-10-10', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (415, 1, 5, '카페', 23086, '2025-11-17', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (416, 3, 4, '점심 식사', 29532, '2025-09-29', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (417, 2, 1, '저녁 회식', 24755, '2025-10-12', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (418, 1, 1, '주유비', 34611, '2025-11-02', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (419, 3, 3, '노래방', 26332, '2025-10-15', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (420, 1, 1, '이마트', 8425, '2025-09-16', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (421, 1, 5, '비행기표', 42508, '2025-10-07', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (422, 1, 1, '카페', 32163, '2025-09-06', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (423, 3, 2, '편의점', 30392, '2025-11-07', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (424, 2, 5, '비행기표', 29572, '2025-11-20', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (425, 1, 4, '배달음식', 35638, '2025-09-29', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (426, 2, 1, '비행기표', 27417, '2025-09-06', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (427, 1, 1, '택시비', 26040, '2025-10-01', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (428, 3, 3, '택시비', 35576, '2025-09-19', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (429, 2, 5, '스타벅스', 23517, '2025-11-16', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (430, 2, 3, '이마트', 28790, '2025-09-30', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (431, 1, 2, '카페', 33469, '2025-11-05', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (432, 3, 5, '비행기표', 51320, '2025-09-23', '2025-11-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (433, 1, 1, '렌트카', 36429, '2025-09-15', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (434, 1, 1, '렌트카', 19418, '2025-11-02', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (435, 1, 1, '주유비', 39042, '2025-09-03', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (436, 3, 4, '노래방', 38146, '2025-10-30', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (437, 2, 1, '택시비', 34142, '2025-09-04', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (438, 3, 2, '이마트', 27367, '2025-11-07', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (439, 3, 4, '렌트카', 16453, '2025-10-11', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (440, 1, 4, '노래방', 31091, '2025-10-31', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (441, 2, 1, '주유비', 55569, '2025-11-19', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (442, 2, 1, '카페', 12052, '2025-09-09', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (443, 1, 4, '점심 식사', 24228, '2025-09-27', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (444, 2, 3, '비행기표', 37911, '2025-10-06', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (445, 3, 1, '카페', 34115, '2025-11-12', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (446, 2, 2, '노래방', 32932, '2025-10-22', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (447, 3, 3, '배달음식', 25926, '2025-10-25', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (448, 3, 2, '노래방', 43407, '2025-10-13', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (449, 1, 2, '주유비', 38244, '2025-09-04', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (450, 2, 5, '이마트', 39169, '2025-10-04', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (451, 1, 5, '점심 식사', 28551, '2025-10-27', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (452, 2, 5, '숙소 결제', 39944, '2025-10-14', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (453, 2, 1, '배달음식', 44664, '2025-11-13', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (454, 1, 4, '점심 식사', 25844, '2025-10-16', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (455, 3, 5, '택시비', 38731, '2025-11-04', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (456, 3, 2, '스타벅스', 39848, '2025-10-07', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (457, 1, 1, '비행기표', 14355, '2025-09-17', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (458, 2, 5, '카페', 20425, '2025-10-03', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (459, 3, 3, '택시비', 29038, '2025-09-12', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (460, 1, 5, '2차 술값', 37108, '2025-10-29', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (461, 2, 1, '스타벅스', 25858, '2025-09-05', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (462, 3, 3, '택시비', 35806, '2025-10-16', '2025-09-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (463, 1, 5, '2차 술값', 34879, '2025-09-27', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (464, 1, 5, '배달음식', 26599, '2025-11-05', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (465, 1, 5, '배달음식', 33032, '2025-09-05', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (466, 2, 3, '저녁 회식', 28531, '2025-09-08', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (467, 3, 4, '숙소 결제', 35605, '2025-09-29', '2025-09-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (468, 2, 3, '숙소 결제', 30294, '2025-10-07', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (469, 1, 5, '렌트카', 30272, '2025-11-05', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (470, 2, 2, '카페', 39470, '2025-11-18', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (471, 3, 3, '숙소 결제', 38535, '2025-10-15', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (472, 2, 3, '렌트카', 19136, '2025-10-05', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (473, 3, 2, '노래방', 38382, '2025-09-16', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (474, 2, 1, '렌트카', 24141, '2025-10-15', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (475, 2, 1, '점심 식사', 44659, '2025-10-11', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (476, 3, 3, '이마트', 23159, '2025-10-03', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (477, 1, 1, '점심 식사', 35282, '2025-09-13', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (478, 3, 1, '렌트카', 29831, '2025-10-03', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (479, 3, 3, '배달음식', 15934, '2025-10-20', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (480, 3, 2, '비행기표', 18633, '2025-11-02', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (481, 1, 4, '주유비', 43124, '2025-09-24', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (482, 2, 5, '배달음식', 33698, '2025-11-05', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (483, 3, 5, '택시비', 19082, '2025-09-09', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (484, 1, 3, '숙소 결제', 47172, '2025-09-25', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (485, 3, 1, '카페', 31431, '2025-09-26', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (486, 2, 3, '비행기표', 31146, '2025-11-07', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (487, 3, 2, '숙소 결제', 44626, '2025-10-03', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (488, 1, 3, '이마트', 35714, '2025-10-31', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (489, 1, 4, '편의점', 46493, '2025-10-27', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (490, 3, 4, '저녁 회식', 33099, '2025-10-15', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (491, 1, 3, '이마트', 29202, '2025-09-13', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (492, 2, 2, '노래방', 28571, '2025-10-15', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (493, 3, 1, '편의점', 37555, '2025-10-26', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (494, 2, 5, '저녁 회식', 13939, '2025-10-25', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (495, 1, 3, '저녁 회식', 25868, '2025-10-30', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (496, 3, 5, '택시비', 11987, '2025-11-06', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (497, 2, 4, '점심 식사', 56728, '2025-10-17', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (498, 1, 4, '주유비', 14494, '2025-10-27', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (499, 2, 5, '택시비', 37115, '2025-09-05', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (500, 3, 3, '이마트', 30520, '2025-09-20', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (501, 3, 3, '저녁 회식', 42228, '2025-11-15', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (502, 2, 2, '배달음식', 23119, '2025-11-12', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (503, 2, 5, '스타벅스', 31154, '2025-09-03', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (504, 1, 2, '비행기표', 21511, '2025-10-03', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (505, 3, 4, '주유비', 34950, '2025-10-20', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (506, 3, 2, '렌트카', 48078, '2025-10-12', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (507, 1, 5, '렌트카', 41805, '2025-10-18', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (508, 3, 2, '렌트카', 12380, '2025-09-12', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (509, 1, 3, '렌트카', 25218, '2025-11-05', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (510, 2, 5, '스타벅스', 30797, '2025-09-02', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (511, 3, 4, '카페', 21754, '2025-10-26', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (512, 1, 4, '비행기표', 37467, '2025-11-16', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (513, 3, 5, '숙소 결제', 27313, '2025-10-01', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (514, 1, 3, '숙소 결제', 35935, '2025-10-31', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (515, 1, 5, '스타벅스', 34107, '2025-09-23', '2025-10-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (516, 2, 4, '택시비', 27102, '2025-09-08', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (517, 1, 4, '노래방', 50195, '2025-10-29', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (518, 2, 3, '스타벅스', 27302, '2025-11-19', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (519, 1, 2, '저녁 회식', 40566, '2025-09-30', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (520, 3, 4, '이마트', 50911, '2025-10-20', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (521, 1, 2, '노래방', 28059, '2025-10-03', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (522, 3, 5, '배달음식', 20255, '2025-10-13', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (523, 2, 5, '편의점', 30413, '2025-10-25', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (524, 3, 4, '배달음식', 28203, '2025-10-31', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (525, 2, 4, '카페', 26428, '2025-11-03', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (526, 1, 4, '카페', 31576, '2025-10-08', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (527, 2, 3, '택시비', 23673, '2025-09-16', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (528, 1, 3, '숙소 결제', 10646, '2025-09-14', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (529, 3, 5, '2차 술값', 37109, '2025-11-18', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (530, 2, 1, '저녁 회식', 39545, '2025-10-05', '2025-10-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (531, 3, 2, '노래방', 42888, '2025-09-02', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (532, 2, 3, '택시비', 21352, '2025-11-05', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (533, 2, 5, '주유비', 24831, '2025-10-14', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (534, 2, 2, '편의점', 20085, '2025-09-11', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (535, 1, 5, '택시비', 29531, '2025-10-27', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (536, 2, 4, '노래방', 21803, '2025-10-04', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (537, 1, 4, '저녁 회식', 41652, '2025-09-13', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (538, 2, 3, '숙소 결제', 32070, '2025-11-07', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (539, 3, 1, '편의점', 19641, '2025-10-10', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (540, 3, 5, '노래방', 21228, '2025-11-10', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (541, 2, 2, '비행기표', 16967, '2025-09-05', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (542, 3, 2, '숙소 결제', 35148, '2025-09-03', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (543, 1, 5, '주유비', 28788, '2025-10-14', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (544, 2, 1, '이마트', 37607, '2025-10-23', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (545, 3, 2, '이마트', 20092, '2025-10-23', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (546, 2, 3, '2차 술값', 36214, '2025-10-11', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (547, 1, 3, '카페', 24684, '2025-10-11', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (548, 1, 4, '점심 식사', 46933, '2025-09-13', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (549, 2, 2, '스타벅스', 19213, '2025-09-21', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (550, 1, 4, '노래방', 34926, '2025-10-10', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (551, 2, 5, '카페', 38071, '2025-09-12', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (552, 2, 5, '배달음식', 2563, '2025-09-05', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (553, 3, 2, '택시비', 22662, '2025-10-27', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (554, 1, 4, '편의점', 19965, '2025-09-29', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (555, 1, 1, '노래방', 55253, '2025-10-26', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (556, 1, 5, '2차 술값', 24427, '2025-10-26', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (557, 2, 3, '숙소 결제', 25109, '2025-09-12', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (558, 3, 1, '비행기표', 32108, '2025-09-29', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (559, 3, 3, '저녁 회식', 18565, '2025-10-07', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (560, 1, 3, '이마트', 24121, '2025-11-14', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (561, 2, 4, '노래방', 28246, '2025-10-23', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (562, 2, 4, '비행기표', 32055, '2025-11-17', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (563, 1, 1, '숙소 결제', 30842, '2025-11-17', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (564, 3, 5, '스타벅스', 19692, '2025-10-14', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (565, 1, 4, '숙소 결제', 32826, '2025-10-24', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (566, 3, 4, '스타벅스', 28712, '2025-09-04', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (567, 3, 5, '노래방', 36016, '2025-10-14', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (568, 3, 3, '배달음식', 29143, '2025-10-23', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (569, 3, 2, '배달음식', 30564, '2025-11-04', '2025-10-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (570, 3, 5, '노래방', 24386, '2025-09-12', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (571, 1, 4, '저녁 회식', 33290, '2025-11-08', '2025-09-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (572, 3, 2, '렌트카', 26355, '2025-09-14', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (573, 1, 5, '비행기표', 22114, '2025-09-05', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (574, 1, 2, '숙소 결제', 17457, '2025-10-04', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (575, 3, 5, '저녁 회식', 45714, '2025-09-13', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (576, 3, 5, '편의점', 31400, '2025-11-02', '2025-09-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (577, 3, 1, '2차 술값', 12118, '2025-10-27', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (578, 3, 2, '비행기표', 38477, '2025-11-02', '2025-09-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (579, 2, 5, '숙소 결제', 51548, '2025-10-23', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (580, 2, 3, '점심 식사', 6728, '2025-10-27', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (581, 1, 1, '카페', 46587, '2025-10-14', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (582, 2, 1, '주유비', 18644, '2025-11-14', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (583, 3, 1, '배달음식', 35420, '2025-10-04', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (584, 3, 1, '택시비', 43619, '2025-10-26', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (585, 1, 1, '주유비', 51114, '2025-09-09', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (586, 3, 1, '편의점', 30511, '2025-09-09', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (587, 3, 5, '2차 술값', 28215, '2025-09-26', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (588, 2, 4, '점심 식사', 48664, '2025-10-14', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (589, 1, 3, '주유비', 14421, '2025-10-25', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (590, 1, 1, '렌트카', 24293, '2025-11-13', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (591, 3, 1, '노래방', 31401, '2025-10-20', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (592, 1, 3, '편의점', 28025, '2025-09-28', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (593, 2, 5, '2차 술값', 42101, '2025-10-28', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (594, 3, 3, '저녁 회식', 18321, '2025-10-28', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (595, 3, 4, '이마트', 30743, '2025-09-10', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (596, 2, 5, '점심 식사', 51085, '2025-10-11', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (597, 3, 5, '렌트카', 33228, '2025-11-05', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (598, 1, 3, '점심 식사', 36226, '2025-11-10', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (599, 1, 3, '이마트', 12764, '2025-11-10', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (600, 2, 2, '렌트카', 46011, '2025-11-15', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (601, 1, 5, '스타벅스', 47316, '2025-10-12', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (602, 2, 4, '이마트', 15377, '2025-10-24', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (603, 3, 1, '숙소 결제', 29649, '2025-10-08', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (604, 1, 5, '이마트', 41623, '2025-09-12', '2025-09-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (605, 2, 4, '이마트', 32031, '2025-10-29', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (606, 1, 2, '스타벅스', 31163, '2025-10-12', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (607, 2, 5, '렌트카', 46972, '2025-10-22', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (608, 1, 3, '저녁 회식', 51921, '2025-10-21', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (609, 2, 4, '배달음식', 26995, '2025-09-15', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (610, 1, 1, '스타벅스', 17849, '2025-09-01', '2025-09-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (611, 1, 1, '카페', 50533, '2025-09-25', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (612, 3, 4, '2차 술값', 15062, '2025-10-09', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (613, 3, 2, '노래방', 18104, '2025-11-17', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (614, 3, 5, '비행기표', 15334, '2025-09-29', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (615, 2, 2, '점심 식사', 29143, '2025-10-07', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (616, 3, 2, '이마트', 31388, '2025-10-03', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (617, 1, 5, '저녁 회식', 27017, '2025-10-26', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (618, 2, 3, '이마트', 29133, '2025-10-12', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (619, 2, 1, '비행기표', 11352, '2025-11-06', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (620, 1, 3, '2차 술값', 18763, '2025-09-06', '2025-09-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (621, 3, 5, '이마트', 49518, '2025-11-16', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (622, 1, 2, '택시비', 22980, '2025-09-11', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (623, 3, 4, '점심 식사', 27723, '2025-10-25', '2025-09-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (624, 2, 5, '비행기표', 33253, '2025-10-06', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (625, 1, 3, '렌트카', 20315, '2025-09-23', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (626, 3, 1, '이마트', 21386, '2025-11-10', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (627, 2, 5, '배달음식', 11505, '2025-11-12', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (628, 1, 2, '비행기표', 24278, '2025-10-31', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (629, 3, 5, '렌트카', 22351, '2025-11-05', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (630, 2, 1, '렌트카', 35130, '2025-10-15', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (631, 1, 5, '노래방', 43759, '2025-10-09', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (632, 1, 4, '렌트카', 37107, '2025-09-07', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (633, 1, 2, '렌트카', 17255, '2025-09-03', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (634, 3, 2, '배달음식', 32079, '2025-10-28', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (635, 2, 1, '택시비', 21358, '2025-09-08', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (636, 2, 3, '저녁 회식', 38810, '2025-11-12', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (637, 3, 4, '배달음식', 13289, '2025-11-19', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (638, 3, 1, '저녁 회식', 36463, '2025-09-11', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (639, 3, 5, '렌트카', 20610, '2025-11-20', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (640, 2, 5, '배달음식', 35165, '2025-11-18', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (641, 2, 2, '숙소 결제', 34136, '2025-10-04', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (642, 2, 4, '점심 식사', 30348, '2025-10-14', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (643, 2, 3, '점심 식사', 45470, '2025-11-18', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (644, 3, 3, '주유비', 52262, '2025-09-05', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (645, 3, 5, '렌트카', 49692, '2025-10-31', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (646, 3, 5, '배달음식', 25220, '2025-10-28', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (647, 3, 5, '편의점', 26635, '2025-10-16', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (648, 1, 5, '스타벅스', 31084, '2025-09-26', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (649, 2, 1, '렌트카', 37535, '2025-09-13', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (650, 3, 3, '점심 식사', 28711, '2025-11-09', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (651, 1, 3, '택시비', 29134, '2025-09-05', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (652, 2, 2, '점심 식사', 34290, '2025-10-12', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (653, 2, 1, '노래방', 32440, '2025-10-08', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (654, 2, 5, '숙소 결제', 30652, '2025-10-03', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (655, 3, 4, '스타벅스', 19412, '2025-10-13', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (656, 1, 3, '렌트카', 7049, '2025-09-02', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (657, 1, 5, '2차 술값', 30745, '2025-09-18', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (658, 1, 5, '점심 식사', 13419, '2025-11-15', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (659, 2, 1, '렌트카', 28704, '2025-11-06', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (660, 1, 1, '렌트카', 35135, '2025-09-18', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (661, 3, 3, '점심 식사', 31810, '2025-09-09', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (662, 2, 3, '편의점', 43145, '2025-09-05', '2025-10-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (663, 1, 5, '렌트카', 42366, '2025-10-21', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (664, 1, 5, '이마트', 43036, '2025-11-10', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (665, 3, 5, '저녁 회식', 40668, '2025-09-23', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (666, 1, 2, '2차 술값', 27733, '2025-10-30', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (667, 2, 1, '2차 술값', 31828, '2025-09-28', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (668, 1, 2, '택시비', 19570, '2025-09-27', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (669, 2, 2, '저녁 회식', 19143, '2025-10-19', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (670, 3, 1, '카페', 27653, '2025-09-19', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (671, 2, 4, '노래방', 35641, '2025-10-12', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (672, 3, 5, '배달음식', 23081, '2025-09-27', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (673, 3, 3, '점심 식사', 32758, '2025-11-19', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (674, 1, 3, '편의점', 29388, '2025-09-07', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (675, 1, 2, '비행기표', 25958, '2025-09-11', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (676, 1, 1, '택시비', 33317, '2025-09-13', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (677, 1, 2, '카페', 20726, '2025-11-11', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (678, 1, 3, '비행기표', 16326, '2025-09-14', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (679, 2, 2, '편의점', 17901, '2025-10-03', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (680, 2, 5, '스타벅스', 47325, '2025-11-06', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (681, 3, 3, '이마트', 39372, '2025-10-15', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (682, 3, 3, '노래방', 33829, '2025-10-11', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (683, 2, 4, '스타벅스', 26006, '2025-09-28', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (684, 1, 1, '이마트', 19144, '2025-11-13', '2025-10-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (685, 2, 2, '노래방', 21575, '2025-10-20', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (686, 3, 1, '편의점', 35842, '2025-09-01', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (687, 2, 4, '2차 술값', 14517, '2025-09-08', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (688, 3, 5, '점심 식사', 16928, '2025-09-11', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (689, 2, 4, '스타벅스', 24795, '2025-11-08', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (690, 3, 3, '점심 식사', 28335, '2025-11-08', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (691, 2, 4, '렌트카', 39431, '2025-10-18', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (692, 1, 1, '숙소 결제', 37713, '2025-10-31', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (693, 1, 3, '숙소 결제', 50237, '2025-11-13', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (694, 2, 1, '스타벅스', 15857, '2025-10-07', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (695, 2, 1, '저녁 회식', 12995, '2025-10-14', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (696, 2, 5, '택시비', 41626, '2025-09-20', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (697, 3, 1, '점심 식사', 30739, '2025-11-18', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (698, 2, 3, '저녁 회식', 13312, '2025-09-10', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (699, 1, 3, '점심 식사', 34160, '2025-11-18', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (700, 1, 1, '편의점', 21122, '2025-10-06', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (701, 2, 3, '스타벅스', 36861, '2025-09-26', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (702, 3, 5, '비행기표', 40601, '2025-09-30', '2025-11-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (703, 3, 4, '이마트', 44427, '2025-11-01', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (704, 3, 4, '이마트', 32884, '2025-11-14', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (705, 3, 4, '렌트카', 37090, '2025-10-04', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (706, 3, 5, '점심 식사', 21791, '2025-11-09', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (707, 2, 2, '택시비', 25477, '2025-09-14', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (708, 1, 1, '이마트', 30463, '2025-10-20', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (709, 3, 2, '주유비', 27013, '2025-09-28', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (710, 2, 2, '택시비', 35801, '2025-10-20', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (711, 2, 3, '렌트카', 35476, '2025-10-21', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (712, 2, 4, '점심 식사', 33250, '2025-10-22', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (713, 3, 2, '저녁 회식', 42858, '2025-09-28', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (714, 3, 4, '이마트', 24292, '2025-09-05', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (715, 2, 3, '숙소 결제', 28670, '2025-10-07', '2025-09-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (716, 2, 3, '렌트카', 32794, '2025-11-16', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (717, 1, 5, '노래방', 29479, '2025-10-09', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (718, 2, 2, '배달음식', 30655, '2025-10-25', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (719, 3, 3, '노래방', 39782, '2025-10-22', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (720, 1, 3, '숙소 결제', 40381, '2025-10-15', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (721, 2, 1, '렌트카', 35364, '2025-10-02', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (722, 3, 3, '숙소 결제', 16488, '2025-11-03', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (723, 2, 3, '렌트카', 33426, '2025-11-12', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (724, 1, 2, '노래방', 23837, '2025-11-04', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (725, 2, 1, '노래방', 34936, '2025-09-03', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (726, 1, 4, '비행기표', 28438, '2025-10-16', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (727, 2, 1, '택시비', 46694, '2025-10-19', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (728, 1, 2, '렌트카', 20960, '2025-09-08', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (729, 3, 1, '주유비', 22194, '2025-10-28', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (730, 2, 5, '2차 술값', 11308, '2025-09-11', '2025-10-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (731, 3, 4, '택시비', 32533, '2025-10-10', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (732, 2, 3, '주유비', 39052, '2025-09-29', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (733, 2, 2, '저녁 회식', 35477, '2025-11-09', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (734, 3, 5, '렌트카', 46980, '2025-09-27', '2025-10-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (735, 2, 2, '주유비', 32977, '2025-10-12', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (736, 3, 2, '이마트', 40093, '2025-09-03', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (737, 3, 2, '카페', 20400, '2025-09-23', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (738, 1, 3, '카페', 27948, '2025-11-16', '2025-11-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (739, 3, 5, '숙소 결제', 30646, '2025-10-03', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (740, 1, 1, '편의점', 37055, '2025-11-19', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (741, 2, 5, '비행기표', 27276, '2025-10-31', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (742, 2, 3, '이마트', 36460, '2025-11-17', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (743, 2, 1, '노래방', 31200, '2025-11-17', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (744, 3, 2, '카페', 47118, '2025-10-02', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (745, 2, 1, '택시비', 25498, '2025-09-17', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (746, 2, 1, '숙소 결제', 34089, '2025-11-12', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (747, 1, 2, '저녁 회식', 39477, '2025-11-01', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (748, 1, 1, '카페', 30173, '2025-10-20', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (749, 2, 4, '스타벅스', 38733, '2025-09-12', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (750, 2, 1, '주유비', 21983, '2025-10-02', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (751, 1, 4, '숙소 결제', 25621, '2025-10-01', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (752, 3, 4, '스타벅스', 29842, '2025-09-17', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (753, 3, 4, '렌트카', 31895, '2025-10-20', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (754, 1, 2, '노래방', 19934, '2025-10-18', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (755, 2, 4, '렌트카', 38500, '2025-11-04', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (756, 2, 3, '스타벅스', 40969, '2025-10-04', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (757, 2, 5, '주유비', 24219, '2025-09-05', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (758, 3, 2, '스타벅스', 30674, '2025-09-14', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (759, 1, 3, '노래방', 40403, '2025-09-25', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (760, 3, 2, '저녁 회식', 45567, '2025-09-25', '2025-10-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (761, 1, 5, '숙소 결제', 44384, '2025-10-06', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (762, 3, 3, '택시비', 15530, '2025-09-01', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (763, 3, 4, '비행기표', 16269, '2025-10-18', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (764, 1, 5, '택시비', 12565, '2025-09-18', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (765, 3, 4, '스타벅스', 30914, '2025-10-28', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (766, 2, 3, '숙소 결제', 27505, '2025-09-24', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (767, 2, 4, '숙소 결제', 43161, '2025-10-13', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (768, 3, 3, '노래방', 18122, '2025-11-01', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (769, 1, 5, '점심 식사', 44601, '2025-11-20', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (770, 3, 2, '렌트카', 29710, '2025-11-14', '2025-09-29');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (771, 2, 5, '배달음식', 10451, '2025-10-04', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (772, 2, 1, '저녁 회식', 24101, '2025-10-12', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (773, 3, 2, '노래방', 18288, '2025-11-18', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (774, 2, 1, '편의점', 5775, '2025-09-30', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (775, 2, 2, '편의점', 34406, '2025-10-30', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (776, 3, 5, '배달음식', 31198, '2025-10-25', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (777, 3, 4, '카페', 21685, '2025-11-10', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (778, 2, 5, '편의점', 18827, '2025-10-17', '2025-10-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (779, 1, 5, '저녁 회식', 34897, '2025-11-05', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (780, 1, 5, '2차 술값', 52977, '2025-11-01', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (781, 1, 3, '점심 식사', 36143, '2025-11-14', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (782, 3, 4, '저녁 회식', 29842, '2025-09-15', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (783, 2, 1, '점심 식사', 19589, '2025-09-12', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (784, 3, 4, '노래방', 34370, '2025-09-01', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (785, 3, 3, '스타벅스', 32225, '2025-09-16', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (786, 2, 1, '스타벅스', 34478, '2025-10-03', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (787, 2, 1, '카페', 24163, '2025-11-11', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (788, 1, 2, '비행기표', 23200, '2025-10-07', '2025-11-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (789, 3, 4, '주유비', 28220, '2025-10-01', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (790, 2, 5, '택시비', 30724, '2025-10-25', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (791, 1, 5, '렌트카', 28695, '2025-09-03', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (792, 2, 4, '카페', 21185, '2025-09-01', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (793, 3, 5, '스타벅스', 30047, '2025-09-19', '2025-11-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (794, 1, 4, '배달음식', 42982, '2025-09-29', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (795, 1, 5, '노래방', 26028, '2025-09-20', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (796, 2, 3, '이마트', 3294, '2025-11-13', '2025-11-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (797, 2, 1, '스타벅스', 38579, '2025-10-09', '2025-10-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (798, 2, 4, '렌트카', 29298, '2025-09-28', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (799, 1, 5, '편의점', 40468, '2025-09-01', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (800, 1, 3, '택시비', 31288, '2025-09-29', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (801, 1, 1, '숙소 결제', 36959, '2025-09-10', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (802, 3, 5, '노래방', 19626, '2025-10-21', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (803, 1, 1, '이마트', 19240, '2025-10-05', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (804, 3, 5, '2차 술값', 20720, '2025-11-04', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (805, 1, 5, '비행기표', 24742, '2025-09-02', '2025-11-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (806, 2, 4, '숙소 결제', 32319, '2025-10-31', '2025-09-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (807, 2, 2, '점심 식사', 16844, '2025-09-16', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (808, 3, 3, '숙소 결제', 29916, '2025-09-04', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (809, 3, 1, '점심 식사', 30307, '2025-10-29', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (810, 1, 1, '이마트', 24636, '2025-10-03', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (811, 2, 4, '택시비', 48081, '2025-09-11', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (812, 1, 2, '주유비', 35365, '2025-10-23', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (813, 1, 4, '배달음식', 42796, '2025-10-20', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (814, 1, 4, '편의점', 27967, '2025-11-16', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (815, 1, 5, '비행기표', 31328, '2025-09-17', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (816, 3, 4, '노래방', 48057, '2025-10-20', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (817, 2, 1, '비행기표', 32481, '2025-10-31', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (818, 3, 2, '편의점', 42635, '2025-10-05', '2025-09-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (819, 2, 2, '주유비', 24230, '2025-11-05', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (820, 1, 4, '노래방', 30109, '2025-11-18', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (821, 2, 2, '노래방', 16262, '2025-10-08', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (822, 2, 2, '주유비', 27274, '2025-11-13', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (823, 2, 2, '배달음식', 35211, '2025-10-15', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (824, 2, 5, '비행기표', 36348, '2025-09-02', '2025-10-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (825, 2, 2, '이마트', 35006, '2025-10-13', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (826, 2, 5, '택시비', 35888, '2025-10-22', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (827, 3, 3, '비행기표', 17733, '2025-09-23', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (828, 1, 4, '노래방', 27838, '2025-09-04', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (829, 1, 1, '2차 술값', 38751, '2025-09-27', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (830, 3, 4, '택시비', 42607, '2025-09-23', '2025-10-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (831, 3, 5, '주유비', 31516, '2025-11-09', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (832, 2, 4, '카페', 8308, '2025-10-04', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (833, 1, 1, '노래방', 17963, '2025-10-05', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (834, 1, 4, '카페', 23147, '2025-10-11', '2025-09-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (835, 3, 5, '비행기표', 18887, '2025-09-21', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (836, 2, 4, '점심 식사', 40347, '2025-10-19', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (837, 3, 5, '택시비', 35973, '2025-10-12', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (838, 3, 4, '저녁 회식', 29733, '2025-10-03', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (839, 3, 4, '숙소 결제', 21299, '2025-10-07', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (840, 1, 2, '스타벅스', 19818, '2025-09-07', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (841, 2, 3, '점심 식사', 32953, '2025-09-15', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (842, 1, 4, '택시비', 43584, '2025-11-18', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (843, 1, 4, '편의점', 11612, '2025-09-03', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (844, 2, 4, '렌트카', 37148, '2025-10-07', '2025-09-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (845, 2, 3, '점심 식사', 21143, '2025-11-20', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (846, 3, 4, '배달음식', 23906, '2025-09-09', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (847, 1, 5, '2차 술값', 17313, '2025-10-16', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (848, 3, 5, '배달음식', 33462, '2025-11-08', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (849, 2, 3, '노래방', 30684, '2025-09-17', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (850, 3, 4, '2차 술값', 31556, '2025-09-07', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (851, 1, 2, '점심 식사', 26907, '2025-09-08', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (852, 1, 5, '점심 식사', 26164, '2025-09-26', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (853, 2, 1, '카페', 38499, '2025-10-09', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (854, 2, 3, '노래방', 26747, '2025-11-10', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (855, 1, 2, '2차 술값', 29912, '2025-10-27', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (856, 1, 2, '택시비', 41646, '2025-11-01', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (857, 2, 3, '점심 식사', 30847, '2025-09-07', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (858, 1, 3, '편의점', 18450, '2025-10-25', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (859, 2, 2, '스타벅스', 43067, '2025-10-28', '2025-11-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (860, 1, 3, '택시비', 33597, '2025-10-09', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (861, 1, 2, '편의점', 42716, '2025-10-10', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (862, 3, 1, '스타벅스', 23182, '2025-11-08', '2025-09-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (863, 2, 5, '이마트', 26044, '2025-11-18', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (864, 2, 4, '배달음식', 17836, '2025-10-27', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (865, 2, 5, '배달음식', 39430, '2025-10-15', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (866, 3, 2, '숙소 결제', 23718, '2025-10-27', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (867, 1, 3, '배달음식', 18224, '2025-11-04', '2025-09-06');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (868, 3, 4, '배달음식', 37695, '2025-10-21', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (869, 1, 1, '카페', 15625, '2025-09-25', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (870, 2, 3, '택시비', 41306, '2025-11-01', '2025-09-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (871, 3, 3, '주유비', 30895, '2025-09-29', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (872, 1, 4, '택시비', 20598, '2025-10-17', '2025-11-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (873, 3, 1, '배달음식', 34637, '2025-10-05', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (874, 3, 1, '렌트카', 30697, '2025-09-12', '2025-11-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (875, 3, 1, '스타벅스', 29395, '2025-10-21', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (876, 1, 1, '편의점', 60799, '2025-09-06', '2025-11-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (877, 1, 4, '저녁 회식', 33827, '2025-09-09', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (878, 1, 5, '이마트', 47640, '2025-10-13', '2025-09-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (879, 3, 5, '카페', 30277, '2025-09-16', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (880, 2, 2, '배달음식', 39508, '2025-10-03', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (881, 2, 5, '2차 술값', 40399, '2025-11-02', '2025-11-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (882, 1, 1, '스타벅스', 29017, '2025-09-18', '2025-09-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (883, 3, 4, '숙소 결제', 38387, '2025-09-01', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (884, 3, 2, '비행기표', 16299, '2025-10-18', '2025-10-12');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (885, 3, 4, '2차 술값', 17881, '2025-10-06', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (886, 3, 3, '렌트카', 21473, '2025-10-05', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (887, 2, 2, '주유비', 22488, '2025-09-14', '2025-09-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (888, 2, 3, '저녁 회식', 33362, '2025-10-07', '2025-10-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (889, 2, 3, '택시비', 18914, '2025-10-05', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (890, 2, 2, '이마트', 32088, '2025-09-03', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (891, 2, 4, '스타벅스', 39952, '2025-10-07', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (892, 1, 3, '점심 식사', 31253, '2025-11-13', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (893, 3, 2, '점심 식사', 29755, '2025-10-11', '2025-11-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (894, 1, 4, '이마트', 25665, '2025-10-28', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (895, 1, 2, '점심 식사', 44471, '2025-10-21', '2025-09-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (896, 1, 3, '배달음식', 29644, '2025-11-07', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (897, 1, 2, '이마트', 33605, '2025-09-02', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (898, 3, 5, '이마트', 42950, '2025-10-22', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (899, 2, 5, '숙소 결제', 17788, '2025-09-06', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (900, 1, 1, '배달음식', 24252, '2025-11-15', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (901, 1, 1, '카페', 24628, '2025-10-18', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (902, 3, 3, '저녁 회식', 19060, '2025-09-16', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (903, 1, 4, '이마트', 17574, '2025-10-26', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (904, 2, 2, '편의점', 32544, '2025-09-30', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (905, 1, 5, '노래방', 34888, '2025-10-22', '2025-09-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (906, 1, 2, '택시비', 32829, '2025-09-04', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (907, 3, 4, '스타벅스', 12583, '2025-09-12', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (908, 3, 5, '숙소 결제', 38436, '2025-10-20', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (909, 1, 1, '배달음식', 22677, '2025-10-14', '2025-09-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (910, 3, 3, '비행기표', 25037, '2025-10-18', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (911, 2, 1, '택시비', 12980, '2025-10-17', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (912, 2, 1, '점심 식사', 32303, '2025-09-23', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (913, 3, 4, '주유비', 11010, '2025-10-18', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (914, 2, 4, '점심 식사', 32441, '2025-10-12', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (915, 1, 2, '노래방', 47607, '2025-11-17', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (916, 2, 1, '스타벅스', 34320, '2025-10-12', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (917, 2, 5, '주유비', 38454, '2025-09-18', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (918, 3, 5, '노래방', 39332, '2025-11-04', '2025-09-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (919, 2, 3, '2차 술값', 42700, '2025-10-06', '2025-10-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (920, 3, 2, '비행기표', 41277, '2025-11-17', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (921, 1, 3, '스타벅스', 29893, '2025-10-02', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (922, 2, 3, '렌트카', 23426, '2025-09-13', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (923, 2, 2, '숙소 결제', 28362, '2025-09-25', '2025-10-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (924, 2, 5, '주유비', 20528, '2025-09-19', '2025-10-01');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (925, 2, 3, '택시비', 30842, '2025-10-12', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (926, 2, 5, '렌트카', 30708, '2025-09-23', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (927, 1, 2, '점심 식사', 33242, '2025-09-21', '2025-11-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (928, 1, 5, '주유비', 39871, '2025-10-18', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (929, 3, 1, '렌트카', 43130, '2025-11-10', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (930, 3, 3, '주유비', 3840, '2025-09-26', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (931, 3, 2, '점심 식사', 28972, '2025-10-21', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (932, 3, 3, '이마트', 29533, '2025-09-06', '2025-09-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (933, 1, 1, '비행기표', 33768, '2025-10-19', '2025-10-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (934, 2, 5, '비행기표', 15349, '2025-10-27', '2025-10-22');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (935, 1, 1, '주유비', 12567, '2025-09-13', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (936, 3, 4, '저녁 회식', 40598, '2025-10-01', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (937, 3, 1, '노래방', 35519, '2025-11-14', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (938, 3, 1, '택시비', 31317, '2025-10-06', '2025-09-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (939, 3, 3, '비행기표', 38893, '2025-11-11', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (940, 1, 1, '점심 식사', 35012, '2025-09-01', '2025-11-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (941, 3, 1, '점심 식사', 26566, '2025-09-21', '2025-11-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (942, 1, 3, '2차 술값', 25889, '2025-11-13', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (943, 2, 2, '숙소 결제', 18180, '2025-11-13', '2025-09-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (944, 2, 3, '숙소 결제', 17599, '2025-09-02', '2025-11-04');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (945, 1, 1, '비행기표', 59251, '2025-09-30', '2025-10-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (946, 3, 1, '주유비', 26465, '2025-09-04', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (947, 3, 1, '비행기표', 47276, '2025-10-22', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (948, 1, 4, '점심 식사', 20417, '2025-09-17', '2025-11-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (949, 2, 4, '점심 식사', 31560, '2025-10-16', '2025-09-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (950, 2, 4, '숙소 결제', 34854, '2025-11-05', '2025-10-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (951, 1, 1, '노래방', 32523, '2025-09-29', '2025-10-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (952, 2, 3, '카페', 38163, '2025-11-11', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (953, 2, 3, '노래방', 36227, '2025-10-28', '2025-10-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (954, 2, 3, '비행기표', 37732, '2025-09-13', '2025-09-24');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (955, 3, 2, '숙소 결제', 39475, '2025-09-05', '2025-10-27');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (956, 3, 2, '이마트', 32932, '2025-10-03', '2025-09-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (957, 3, 4, '주유비', 36282, '2025-10-29', '2025-11-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (958, 3, 2, '편의점', 46244, '2025-11-07', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (959, 2, 4, '2차 술값', 32350, '2025-09-21', '2025-10-30');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (960, 1, 1, '배달음식', 19954, '2025-09-07', '2025-09-16');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (961, 1, 4, '2차 술값', 24747, '2025-10-27', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (962, 3, 2, '스타벅스', 21399, '2025-09-23', '2025-10-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (963, 3, 5, '노래방', 28338, '2025-10-15', '2025-10-02');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (964, 2, 4, '택시비', 29252, '2025-10-20', '2025-10-25');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (965, 2, 4, '이마트', 31109, '2025-10-24', '2025-09-15');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (966, 3, 2, '택시비', 33952, '2025-10-16', '2025-11-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (967, 1, 3, '2차 술값', 20753, '2025-09-18', '2025-10-21');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (968, 1, 3, '이마트', 28584, '2025-10-05', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (969, 2, 1, '이마트', 35657, '2025-09-22', '2025-10-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (970, 1, 1, '노래방', 44318, '2025-09-22', '2025-10-23');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (971, 3, 4, '렌트카', 33573, '2025-10-24', '2025-09-28');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (972, 1, 3, '노래방', 27887, '2025-10-20', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (973, 2, 2, '배달음식', 35583, '2025-09-14', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (974, 1, 2, '노래방', 9134, '2025-10-27', '2025-10-07');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (975, 1, 3, '렌트카', 20319, '2025-09-18', '2025-09-26');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (976, 1, 5, '숙소 결제', 32698, '2025-10-21', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (977, 3, 4, '숙소 결제', 30667, '2025-11-08', '2025-09-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (978, 1, 2, '스타벅스', 17374, '2025-09-05', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (979, 1, 2, '2차 술값', 10612, '2025-11-11', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (980, 1, 2, '비행기표', 9440, '2025-09-12', '2025-11-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (981, 1, 5, '비행기표', 36477, '2025-10-02', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (982, 1, 1, '렌트카', 35919, '2025-11-05', '2025-09-19');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (983, 2, 4, '저녁 회식', 26745, '2025-09-28', '2025-10-13');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (984, 1, 3, '저녁 회식', 39408, '2025-09-27', '2025-10-31');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (985, 3, 5, '스타벅스', 17442, '2025-09-12', '2025-09-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (986, 1, 5, '이마트', 23003, '2025-10-15', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (987, 1, 1, '주유비', 39540, '2025-09-19', '2025-11-17');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (988, 2, 5, '카페', 22535, '2025-09-07', '2025-10-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (989, 1, 1, '배달음식', 26775, '2025-11-01', '2025-11-20');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (990, 2, 5, '스타벅스', 29203, '2025-11-01', '2025-10-09');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (991, 3, 5, '배달음식', 20425, '2025-11-01', '2025-09-08');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (992, 3, 4, '카페', 38456, '2025-10-06', '2025-11-10');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (993, 2, 2, '비행기표', 30973, '2025-09-22', '2025-09-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (994, 3, 5, '저녁 회식', 16511, '2025-11-18', '2025-09-18');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (995, 3, 5, '스타벅스', 11384, '2025-09-16', '2025-11-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (996, 1, 5, '이마트', 33031, '2025-10-14', '2025-09-05');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (997, 1, 2, '노래방', 51915, '2025-09-17', '2025-11-11');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (998, 3, 5, '주유비', 41361, '2025-10-23', '2025-10-14');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (999, 3, 2, '스타벅스', 26207, '2025-09-07', '2025-10-03');
-insert into expenses (id, group_id, payer_id, title, amount, expense_data, created_at) values (1000, 1, 3, '이마트', 27845, '2025-10-02', '2025-09-12');
-
--- ============================================================
--- [4] 연관 데이터 자동 생성 (SQL Logic)
--- ============================================================
-
--- 4-1. ExpenseItem 생성 (지출 1개당 아이템 1개 자동 생성)
+-- 6. 지출 연관 데이터 생성
 INSERT INTO expense_items (expense_id, name, price, quantity)
 SELECT id, title, amount, 1 FROM expenses;
 
--- 4-2. ExpenseParticipant 생성 (지출 발생 그룹의 모든 멤버를 참여자로 등록)
 INSERT INTO expense_participants (expense_id, user_id)
 SELECT e.id, gm.user_id
-FROM expenses e
-         JOIN group_members gm ON e.group_id = gm.group_id;
+FROM expenses e JOIN group_members gm ON e.group_id = gm.group_id;
 
--- 4-3. ExpenseTags 매핑 (랜덤 태그 1개 매핑)
 INSERT INTO expense_tags (expense_id, tag_id)
-SELECT e.id, (
-    SELECT id FROM tags t
-    WHERE t.group_id = e.group_id
-    ORDER BY random() LIMIT 1
-)
+SELECT e.id, (SELECT id FROM tags t WHERE t.group_id = e.group_id ORDER BY random() LIMIT 1)
 FROM expenses e;
 
--- 4-4. Settlements (정산) 생성 (1:1 매핑)
--- 80%는 완료됨(COMPLETED), 20%는 정산중(PENDING)으로 설정
+-- 7. ★ 정산 데이터 생성 (1~800번만 생성, 801~1000번은 미정산)
 INSERT INTO settlements (expense_id, method, status, deadline, created_at)
 SELECT
     id,
-    'N_BBANG',
+    'N_BUN_1',
     CASE WHEN random() > 0.2 THEN 'COMPLETED' ELSE 'PENDING' END,
     created_at + INTERVAL '7 days',
     created_at
-FROM expenses;
+FROM expenses
+WHERE id <= 800;
 
--- 4-5. SettlementDetail (정산 상세) 생성
--- (결제자를 제외한 나머지 그룹 멤버를 N빵 채무자로 등록)
+-- 8. 정산 상세 데이터 생성
 INSERT INTO settlement_details (settlement_id, debtor_id, creditor_id, amount, is_sent, created_at)
 SELECT
     s.id,
-    gm.user_id, -- 돈 줄 사람 (그룹 멤버)
-    e.payer_id, -- 돈 받을 사람 (결제자)
-    trunc(e.amount / (SELECT COUNT(*) FROM group_members WHERE group_id = e.group_id), 2), -- N빵 금액
-    (s.status = 'COMPLETED'), -- 정산이 완료 상태면 송금도 완료된 것으로 처리
+    gm.user_id,
+    e.payer_id,
+    (e.amount / (SELECT COUNT(*) FROM group_members WHERE group_id = e.group_id))::bigint, -- N빵 (Long)
+    (s.status = 'COMPLETED'),
     s.created_at
 FROM settlements s
          JOIN expenses e ON s.expense_id = e.id
          JOIN group_members gm ON e.group_id = gm.group_id
-WHERE gm.user_id != e.payer_id; -- 결제자 본인은 제외
-
+WHERE gm.user_id != e.payer_id;
 
 -- ============================================================
--- [5] 시퀀스(ID) 동기화
+-- [5] 시퀀스(번호표) 동기화
 -- ============================================================
--- 데이터를 강제로 넣었으니 번호표(Sequence)를 맨 뒤로 이동
 SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
-SELECT setval('groups_id_seq', (SELECT MAX(id) FROM groups) + 50);
-SELECT setval('group_members_id_seq', (SELECT MAX(id) FROM group_members) + 50);
-SELECT setval('expenses_seq', (SELECT MAX(id) FROM expenses) + 100);
-SELECT setval('expense_items_seq', (SELECT MAX(id) FROM expense_items) + 100);
+SELECT setval(pg_get_serial_sequence('groups', 'id'), (SELECT MAX(id) FROM groups));
+SELECT setval(pg_get_serial_sequence('group_members', 'id'), (SELECT MAX(id) FROM group_members));
+SELECT setval(pg_get_serial_sequence('tags', 'id'), (SELECT MAX(id) FROM tags));
+SELECT setval(pg_get_serial_sequence('expenses', 'id'), (SELECT MAX(id) FROM expenses));
+SELECT setval(pg_get_serial_sequence('expense_items', 'id'), (SELECT MAX(id) FROM expense_items));
 SELECT setval(pg_get_serial_sequence('settlements', 'id'), (SELECT MAX(id) FROM settlements));
 SELECT setval(pg_get_serial_sequence('settlement_details', 'id'), (SELECT MAX(id) FROM settlement_details));
+
+
+CREATE TABLE votes (
+                       id bigserial PRIMARY KEY,
+                       expense_id bigint NOT NULL,
+                       is_closed boolean NOT NULL DEFAULT false,
+                       created_at timestamp(6),
+                       updated_at timestamp(6)
+);
+
+CREATE TABLE vote_options (
+                              id bigserial PRIMARY KEY,
+                              vote_id bigint NOT NULL,
+                              expense_item_id bigint NOT NULL
+);
+
+CREATE TABLE user_votes (
+                            id bigserial PRIMARY KEY,
+                            user_id bigint NOT NULL,
+                            vote_option_id bigint NOT NULL,
+                            created_at timestamp(6),
+                            updated_at timestamp(6)
+);
+
+-- 외래키 연결
+ALTER TABLE votes ADD CONSTRAINT fk_votes_expense FOREIGN KEY (expense_id) REFERENCES expenses (id);
+ALTER TABLE vote_options ADD CONSTRAINT fk_vo_vote FOREIGN KEY (vote_id) REFERENCES votes (id);
+ALTER TABLE vote_options ADD CONSTRAINT fk_vo_item FOREIGN KEY (expense_item_id) REFERENCES expense_items (id);
+ALTER TABLE user_votes ADD CONSTRAINT fk_uv_user FOREIGN KEY (user_id) REFERENCES users (id);
+ALTER TABLE user_votes ADD CONSTRAINT fk_uv_option FOREIGN KEY (vote_option_id) REFERENCES vote_options (id);
