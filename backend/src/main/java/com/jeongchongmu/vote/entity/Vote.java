@@ -1,7 +1,7 @@
 package com.jeongchongmu.vote.entity;
 
 import com.jeongchongmu.common.BaseEntity;
-import com.jeongchongmu.expense.JPA.Expense;
+import com.jeongchongmu.domain.expense.JPA.Expense;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.ArrayList;

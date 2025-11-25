@@ -7,8 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.jeongchongmu.expense.JPA.Expense;
-import com.jeongchongmu.expense.Repository.ExpenseRepository;
+import com.jeongchongmu.domain.expense.JPA.Expense;
+import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
 import com.jeongchongmu.domain.group.entity.Group;
 import com.jeongchongmu.domain.group.repository.GroupMemberRepository;
 import com.jeongchongmu.user.User;

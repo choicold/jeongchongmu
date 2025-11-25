@@ -1,4 +1,4 @@
-package com.jeongchongmu.expense.JPA;
+package com.jeongchongmu.domain.expense.JPA;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;

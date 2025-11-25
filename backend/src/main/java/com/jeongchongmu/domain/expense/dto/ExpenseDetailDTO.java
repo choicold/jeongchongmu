@@ -1,7 +1,7 @@
-package com.jeongchongmu.expense.dto;
+package com.jeongchongmu.domain.expense.dto;
 
-import com.jeongchongmu.expense.JPA.Expense;
-import com.jeongchongmu.expense.JPA.Tag;
+import com.jeongchongmu.domain.expense.JPA.Expense;
+import com.jeongchongmu.domain.expense.JPA.Tag;
 
 import java.time.LocalDateTime;
 import java.util.List;
