@@ -1,8 +1,8 @@
-package com.jeongchongmu.expense.Repository;
+package com.jeongchongmu.domain.expense.Repository;
 
-import com.jeongchongmu.expense.JPA.Expense;
-import com.jeongchongmu.expense.JPA.ExpenseParticipant;
-import com.jeongchongmu.expense.JPA.ExpenseParticipantId;
+import com.jeongchongmu.domain.expense.JPA.Expense;
+import com.jeongchongmu.domain.expense.JPA.ExpenseParticipant;
+import com.jeongchongmu.domain.expense.JPA.ExpenseParticipantId;
 import com.jeongchongmu.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

@@ -1,9 +1,8 @@
-package com.jeongchongmu.OCR;
+package com.jeongchongmu.domain.OCR.service;
 
 
-import com.jeongchongmu.OCR.DTO.OcrResultDTO;
+import com.jeongchongmu.domain.OCR.DTO.OcrResultDTO;
 import org.springframework.web.multipart.MultipartFile;
-import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 

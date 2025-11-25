@@ -1,6 +1,6 @@
-package com.jeongchongmu.OCR.DTO;
+package com.jeongchongmu.domain.OCR.DTO;
 
-import com.jeongchongmu.expense.dto.ExpenseItemDTO;
+import com.jeongchongmu.domain.expense.dto.ExpenseItemDTO;
 import java.time.LocalDateTime;
 import java.util.List;
 

@@ -1,7 +1,7 @@
 package com.jeongchongmu.statistics;
 
 
-import com.jeongchongmu.expense.Repository.ExpenseRepository;
+import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
 import com.jeongchongmu.settlement.repository.SettlementRepository;
 import com.jeongchongmu.statistics.dto.*;
 import lombok.RequiredArgsConstructor;

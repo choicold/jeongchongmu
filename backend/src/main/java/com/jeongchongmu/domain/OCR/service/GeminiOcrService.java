@@ -1,9 +1,9 @@
-package com.jeongchongmu.OCR;
+package com.jeongchongmu.domain.OCR.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Client;
 import com.google.genai.types.*;
-import com.jeongchongmu.OCR.DTO.OcrResultDTO;
+import com.jeongchongmu.domain.OCR.DTO.OcrResultDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,29 +35,31 @@ public class GeminiOcrService implements OcrService {
         byte[] imageBytes = imageFile.getBytes();
 
         // 3. [전략 변경] 프롬프트에 JSON 구조를 텍스트로 명확히 박아넣기
-        // quantity(수량)까지 포함하여 요청합니다.
         String promptText = """
-                You are a strict OCR assistant. Analyze this receipt image and extract data into the following JSON format.
-                
-                Rules:
-                1. Output MUST be raw JSON only. No Markdown formatting (no ```json).
-                2. If a field is missing, use null or appropriate default.
-                3. Date format must be ISO-8601 (YYYY-MM-DDTHH:mm:ss).
-                
-                Required JSON Structure:
+            You are a strict OCR assistant. Analyze this receipt image and extract data into the following JSON format.
+            
+            Rules:
+            1. Output MUST be raw JSON only. No Markdown formatting (no ```json).
+            2. If a field is missing, use null or appropriate default.
+            3. Date format must be ISO-8601 (YYYY-MM-DDTHH:mm:ss).
+            4. [IMPORTANT] For the 'items' list, the 'price' field MUST be the 'Total Amount' (Unit Price * Quantity). 
+               Do NOT extract the 'Unit Price' (단가). Extract the 'Amount' (금액) column.
+               (e.g., If Unit Price is 1,300 and Qty is 2, 'price' must be 2,600).
+            
+            Required JSON Structure:
+            {
+              "title": "Store Name",
+              "amount": 27600 (Integer, Total sum of the receipt),
+              "expenseData": "2010-03-24T21:17:00",
+              "items": [
                 {
-                  "title": "Store Name",
-                  "amount": 10000 (Integer, total price),
-                  "expenseData": "2023-10-27T12:00:00",
-                  "items": [
-                    {
-                      "name": "Item Name",
-                      "price": 5000 (Integer),
-                      "quantity": 1 (Integer, default 1)
-                    }
-                  ]
+                  "name": "Item Name",
+                  "price": 2600 (Integer, Total line amount = Unit Price * Quantity),
+                  "quantity": 2 (Integer)
                 }
-                """;
+              ]
+            }
+            """;
 
         // 4. 요청 데이터 구성
         // Schema 설정(GenerateContentConfig) 제거하고 기본 요청으로 보냄
@@ -77,6 +79,10 @@ public class GeminiOcrService implements OcrService {
 
             String responseText = response.text();
             log.info("Gemini Raw Response: {}", responseText);
+
+            if (responseText == null) {
+                throw new IOException("Gemini API로부터 응답을 받지 못했습니다.");
+            }
 
             // 6. 혹시 모를 마크다운 백틱 제거 (Gemini가 말을 안 듣고 넣어줄 때를 대비)
             String cleanJson = responseText

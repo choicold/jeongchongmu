@@ -1,4 +1,4 @@
-package com.jeongchongmu.expense.dto;
+package com.jeongchongmu.domain.expense.dto;
 
 import java.time.LocalDateTime;
 import java.util.List;

@@ -6,7 +6,7 @@ import com.jeongchongmu.common.BaseEntity;
 import com.jeongchongmu.settlement.enums.SettlementMethod;
 import com.jeongchongmu.settlement.enums.SettlementStatus;
 // '지출' 엔티티 임포트 (expense 패키지 경로 확인!)
-import com.jeongchongmu.expense.JPA.Expense;
+import com.jeongchongmu.domain.expense.JPA.Expense;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
