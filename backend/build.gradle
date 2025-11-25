@@ -64,6 +64,16 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'io.rest-assured:rest-assured'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+
+	//mcp OpenAI
+	implementation platform("org.springframework.ai:spring-ai-bom:1.0.0")
+	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
+	//ocr - gemini
+	implementation 'com.google.genai:google-genai:0.4.0'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
 }
 
 bootJar {

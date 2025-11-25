@@ -14,7 +14,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
-@DataJpaTest // JPA 관련 컴포넌트만 로드하여 테스트
+@DataJpaTest // JPA 관련 컴포넌트만 로드하여 빠르게 테스트
 class GroupRepositoryTest {
 
     @Autowired GroupRepository groupRepository;
@@ -39,7 +39,7 @@ class GroupRepositoryTest {
         // C. 남이 만들고, 나는 상관없는 그룹
         Group otherGroup = groupRepository.save(Group.builder().name("남의 그룹").creator(other).build());
 
-        // 3. 조회 실행
+        // 3. 조회 실행 (핵심 테스트!)
         List<Group> result = groupRepository.findAllGroupsByUser(me);
 
         // 4. 검증

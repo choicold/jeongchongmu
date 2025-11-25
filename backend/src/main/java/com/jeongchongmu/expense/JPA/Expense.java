@@ -5,13 +5,9 @@ import com.jeongchongmu.domain.group.entity.Group;
 import com.jeongchongmu.user.User;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 
@@ -44,6 +40,9 @@ public class Expense extends BaseEntity {
     @Column(nullable = false, updatable = false)
     private LocalDateTime expenseData;
 
+    @Column(length = 1000)
+    private String receiptUrl;
+
     /** [연관관계]
      * expense-expenseItem 1:N
      * expense-expenseParticipant 1:N
@@ -51,11 +50,13 @@ public class Expense extends BaseEntity {
      */
     @Builder.Default
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ExpenseItem> items = new ArrayList<>();
+    @OrderBy("id ASC") // 아이템 입력 순서(ID순) 보장
+    private Set<ExpenseItem> items = new HashSet<>();
 
     @Builder.Default
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ExpenseParticipant> participants = new ArrayList<>();
+    @OrderBy("id ASC") // ID순 정렬
+    private Set<ExpenseParticipant> participants = new HashSet<>();
 
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)

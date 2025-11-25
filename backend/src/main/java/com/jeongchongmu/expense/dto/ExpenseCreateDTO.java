@@ -9,8 +9,9 @@ public record ExpenseCreateDTO(
         Long amount,
         LocalDateTime expenseData,
         Long groupId,//객체 아님
-        Long payerId,//객체 아님
 
-        List<Long> participantIds,//참여자의 KEY
-        List<ExpenseItemDTO> items
+        List<Long> participantIds,// 참여자ID
+        List<ExpenseItemDTO> items,// 아이템 객체
+        List<String> tagNames, // tag를 string형태로
+        String receiptUrl
 ) {}
