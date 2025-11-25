@@ -1,9 +1,7 @@
-package com.jeongchongmu.expense.JPA;
+package com.jeongchongmu.domain.expense.JPA;
 
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.math.BigDecimal;
 
 @Entity
 @Table(name = "expense_items")

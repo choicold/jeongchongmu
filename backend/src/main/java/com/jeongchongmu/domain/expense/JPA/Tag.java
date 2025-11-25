@@ -1,4 +1,4 @@
-package com.jeongchongmu.expense.JPA;
+package com.jeongchongmu.domain.expense.JPA;
 
 import com.jeongchongmu.domain.group.entity.Group;
 import jakarta.persistence.*;

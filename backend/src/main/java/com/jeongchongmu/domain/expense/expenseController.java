@@ -1,9 +1,9 @@
-package com.jeongchongmu.expense;
+package com.jeongchongmu.domain.expense;
 
-import com.jeongchongmu.expense.dto.ExpenseCreateDTO;
-import com.jeongchongmu.expense.dto.ExpenseDetailDTO;
-import com.jeongchongmu.expense.dto.ExpenseSimpleDTO;
-import com.jeongchongmu.expense.dto.ExpenseUpdateDTO;
+import com.jeongchongmu.domain.expense.dto.ExpenseCreateDTO;
+import com.jeongchongmu.domain.expense.dto.ExpenseDetailDTO;
+import com.jeongchongmu.domain.expense.dto.ExpenseSimpleDTO;
+import com.jeongchongmu.domain.expense.dto.ExpenseUpdateDTO;
 import com.jeongchongmu.user.User;
 import jakarta.validation.Valid; // 👈 1. @Valid (DTO 검증용)
 import lombok.RequiredArgsConstructor;

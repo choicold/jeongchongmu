@@ -1,7 +1,7 @@
-package com.jeongchongmu.expense.Repository;
+package com.jeongchongmu.domain.expense.Repository;
 
 import com.jeongchongmu.domain.group.entity.Group;
-import com.jeongchongmu.expense.JPA.Tag;
+import com.jeongchongmu.domain.expense.JPA.Tag;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

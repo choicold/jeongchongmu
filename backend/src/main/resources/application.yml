@@ -5,6 +5,17 @@ spring:
   profiles:
     active: ${SPRING_PROFILE:local}
 
+  ai:
+    gemini:
+      api-key: ${GOOGLE_API_KEY}
+    openai:
+      api-key: ${OPENAI_API_KEY}
+
+supabase:
+  url: ${SUPABASE_URL}
+  key: ${SUPABASE_KEY}
+  bucket: receipts
+
 ---
 # 로컬 도커 DB
 spring:
@@ -29,12 +40,6 @@ spring:
 
   flyway:
     enabled: false
-
-  ai:
-    gemini:
-      api-key: ${GOOGLE_API_KEY}
-    openai:
-      api-key: ${OPENAI_API_KEY}
 
 server:
   port: ${SERVER_PORT:8080}

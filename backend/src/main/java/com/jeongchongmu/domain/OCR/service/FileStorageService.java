@@ -1,4 +1,4 @@
-package com.jeongchongmu.OCR;
+package com.jeongchongmu.domain.OCR.service;
 
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;

@@ -1,6 +1,6 @@
 package com.jeongchongmu.vote.entity;
 
-import com.jeongchongmu.expense.JPA.ExpenseItem;
+import com.jeongchongmu.domain.expense.JPA.ExpenseItem;
 import jakarta.persistence.*;
 import lombok.*;
 
