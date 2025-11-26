@@ -121,7 +121,6 @@ public class McpChatController {
     private final ChatClient chatClient;
     private final ExpenseAiTools expenseAiTools;
     private final GroupAiTools groupAiTools;
-    private final FeatureAiTools featureAiTools;
     private final OcrAiTools ocrAiTools;
     private final FileStorageService fileStorageService;
     private final StatisticsAiTools statisticsAiTools;
@@ -132,7 +131,6 @@ public class McpChatController {
             ChatMemory chatMemory,
             ExpenseAiTools expenseAiTools,
             GroupAiTools groupAiTools,
-            FeatureAiTools featureAiTools,
             OcrAiTools ocrAiTools,
             FileStorageService fileStorageService,
             StatisticsAiTools statisticsAiTools,
@@ -140,7 +138,6 @@ public class McpChatController {
     ) {
         this.expenseAiTools = expenseAiTools;
         this.groupAiTools = groupAiTools;
-        this.featureAiTools = featureAiTools;
         this.ocrAiTools = ocrAiTools;
         this.fileStorageService = fileStorageService;
         this.statisticsAiTools = statisticsAiTools;
@@ -204,7 +201,7 @@ public class McpChatController {
         return chatClient.prompt()
                 .messages(messages)
                 .toolContext(contextMap)
-                .tools(expenseAiTools, groupAiTools, featureAiTools, ocrAiTools,statisticsAiTools,dateTimeAiTools)
+                .tools(expenseAiTools, groupAiTools, ocrAiTools,statisticsAiTools,dateTimeAiTools)
                 .call()
                 .content();
     }
