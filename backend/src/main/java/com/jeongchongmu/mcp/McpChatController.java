@@ -84,6 +84,38 @@ public class McpChatController {
             - 조회 결과: "#1401 브런치 카페, #1351 이자카야, #1301 카페 모임"
             - 사용자: "이 3개 태그 알려줘"
             - AI: [getExpenseDetail(1401), getExpenseDetail(1351), getExpenseDetail(1301)]
+            
+            [★★★ 새로 추가: 통계 조회 프로토콜 (Statistics Protocol)]
+            사용자가 통계/카테고리/지출 내역을 요청할 때 **기간 지정이 없으면** 다음 규칙을 따르십시오:
+            
+            1. **"모든", "전체", "지금까지" 등의 표현**이 있으면:
+               → 📌 **year와 month 파라미터를 전달하지 마십시오**
+               → 이렇게 하면 DB에 저장된 모든 데이터를 조회합니다
+               → 예: getCategoryAnalysis(groupId=101) ← year, month 없음!
+            
+            2. **특정 기간 언급**이 있으면:
+               → 해당 연도/월을 명시적으로 전달하십시오
+               → 예: "2024년 11월" → getCategoryAnalysis(groupId=101, year=2024, month=11)
+            
+            3. **"이번 달", "최근", "올해" 등 현재 기준 표현**이 있으면:
+               → 먼저 [getCurrentDateTime] 호출하여 현재 날짜 확인
+               → 확인된 연도/월을 파라미터로 전달
+               → 예: getCurrentDateTime → 2025년 확인 → getCategoryAnalysis(groupId=101, year=2025, month=11)
+            
+            4. **여러 그룹을 동시에 조회**할 때:
+               → 각 그룹마다 동일한 기간 기준 적용
+               → 예: "내 그룹들의 모든 지출" → 각 그룹에 대해 getCategoryAnalysis(groupId) 호출 (year/month 없음)
+            
+            **❌ 절대 금지 사항**:
+            - 사용자가 "모든", "전체"라고 했는데 year=2025, month=11 같은 기본값을 임의로 추가하지 마십시오
+            - 통계 도구는 파라미터가 없으면 자동으로 전체 기간을 조회합니다
+            
+            **✅ 올바른 예시**:
+            - 사용자: "내 그룹들의 모든 지출에 대해서 카테고리별 금액이 궁금해"
+            - AI 실행:\s
+              [getMyGroups] → 그룹 101, 111 확인
+              [getCategoryAnalysis(groupId=101)] ← year/month 없음!
+              [getCategoryAnalysis(groupId=111)] ← year/month 없음!
             """;
 
     private final ChatClient chatClient;

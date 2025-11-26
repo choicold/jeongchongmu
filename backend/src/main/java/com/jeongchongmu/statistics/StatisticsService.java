@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -72,6 +73,82 @@ public class StatisticsService {
 
 
 
+    }
+
+    @Transactional(readOnly = true)
+    public MonthlyStatisticsResponseDto getMonthlyStatistics(Long groupId, Integer year, Integer month) {
+        LocalDateTime now = LocalDateTime.now();
+        int currentYear = (year != null) ? year : now.getYear();
+        int currentMonth = (month != null) ? month : now.getMonthValue();
+
+        // 🔥 핵심: year/month가 둘 다 null이면 전체 기간 조회
+        boolean isAllTime = (year == null && month == null);
+
+        // 1. 지출 요약
+        ExpenseSummaryDto expenseSummary;
+        if (isAllTime) {
+            expenseSummary = expenseRepository.findAllTimeExpenseSummary(groupId);
+        } else {
+            expenseSummary = expenseRepository.findMonthlyExpenseSummary(groupId, currentYear, currentMonth);
+        }
+
+        // 2. 카테고리별 통계
+        List<CategorySummaryDto> categoryStatistics;
+        if (isAllTime) {
+            categoryStatistics = expenseRepository.findAllTimeCategoryStatistics(groupId);
+        } else {
+            categoryStatistics = expenseRepository.findMonthlyCategoryStatistics(groupId, currentYear, currentMonth);
+        }
+
+        // 3. 가장 큰 지출
+        List<TopExpenseDto> topExpenses;
+        if (isAllTime) {
+            topExpenses = expenseRepository.findAllTimeTopExpense(groupId, PageRequest.of(0, 1));
+        } else {
+            topExpenses = expenseRepository.findTopExpense(groupId, currentYear, currentMonth, PageRequest.of(0, 1));
+        }
+        TopExpenseDto topExpense = topExpenses.isEmpty() ? null : topExpenses.getFirst();
+
+        // 4. 정산 요약
+        SettlementSummaryDto settlementSummary;
+        if (isAllTime) {
+            settlementSummary = settlementRepository.findAllTimeSettlementSummary(groupId);
+        } else {
+            settlementSummary = settlementRepository.findMonthlySettlementSummary(groupId, currentYear, currentMonth);
+        }
+
+        // 5. 미완료 정산 목록
+        List<TopExpenseDto> incompletedSettlements;
+        if (isAllTime) {
+            incompletedSettlements = settlementRepository.findAllTimeIncompletedSettlements(groupId);
+        } else {
+            incompletedSettlements = settlementRepository.findIncompletedSettlements(groupId, currentYear, currentMonth);
+        }
+
+        // 6. 연간 통계
+        List<Long> yearlyStatistics = new ArrayList<>();
+        if (isAllTime) {
+            yearlyStatistics = Collections.nCopies(12, 0L); // 전체 기간이므로 월별 의미 없음
+        } else {
+            List<MonthlyExpenseStatDto> yearlyRawData = expenseRepository.findYearlyStatistics(groupId, currentYear);
+            Map<Integer, Long> monthlyMap = yearlyRawData.stream()
+                    .collect(Collectors.toMap(MonthlyExpenseStatDto::month, MonthlyExpenseStatDto::amount));
+
+            for (int i = 1; i <= 12; i++) {
+                yearlyStatistics.add(monthlyMap.getOrDefault(i, 0L));
+            }
+        }
+
+        return MonthlyStatisticsResponseDto.builder()
+                .totalExpenseAmount(expenseSummary != null && expenseSummary.totalAmount() != null ? expenseSummary.totalAmount() : 0L)
+                .totalExpenseCount(expenseSummary != null && expenseSummary.totalCount() != null ? expenseSummary.totalCount() : 0L)
+                .categories(categoryStatistics != null ? categoryStatistics : Collections.emptyList())
+                .topExpense(topExpense)
+                .totalSettlementCount(settlementSummary != null && settlementSummary.totalCount() != null ? settlementSummary.totalCount() : 0L)
+                .notCompletedSettlementCount(settlementSummary != null && settlementSummary.notCompletedCount() != null ? settlementSummary.notCompletedCount() : 0L)
+                .incompletedSettlements(incompletedSettlements != null ? incompletedSettlements : Collections.emptyList())
+                .yearlyStatistics(yearlyStatistics)
+                .build();
     }
 
 }
