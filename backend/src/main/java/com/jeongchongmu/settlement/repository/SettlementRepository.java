@@ -51,4 +51,29 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
                                                   @Param("month") int month);
 
 
+    // 전체 기간 정산 요약
+    @Query("""
+    SELECT new com.jeongchongmu.statistics.dto.SettlementSummaryDto(
+        COUNT(s.id),
+        SUM(CASE WHEN s.status <> 'COMPLETED' THEN 1 ELSE 0 END)
+    )
+    FROM Settlement s
+    JOIN s.expense e
+    WHERE e.group.id = :groupId
+""")
+    SettlementSummaryDto findAllTimeSettlementSummary(@Param("groupId") Long groupId);
+
+    // 전체 기간 미완료 정산 목록
+    @Query("""
+    SELECT new com.jeongchongmu.statistics.dto.TopExpenseDto(
+        s.expense.id, e.title, e.amount
+    )
+    FROM Settlement s
+    JOIN s.expense e
+    WHERE e.group.id = :groupId
+      AND s.status <> 'COMPLETED'
+""")
+    List<TopExpenseDto> findAllTimeIncompletedSettlements(@Param("groupId") Long groupId);
+
+
 }

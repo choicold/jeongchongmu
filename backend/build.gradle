@@ -22,6 +22,7 @@ configurations {
 
 repositories {
 	mavenCentral()
+
 }
 
 dependencies {
@@ -67,12 +68,15 @@ dependencies {
 
 
 	//mcp OpenAI
-	implementation platform("org.springframework.ai:spring-ai-bom:1.0.0")
+	implementation platform("org.springframework.ai:spring-ai-bom:1.1.0")
 	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 
 	//ocr - gemini
 	implementation 'com.google.genai:google-genai:0.4.0'
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+	//MCP Server - WebMVC
+	implementation 'org.springframework.ai:spring-ai-starter-mcp-server-webmvc'
 
 }
 

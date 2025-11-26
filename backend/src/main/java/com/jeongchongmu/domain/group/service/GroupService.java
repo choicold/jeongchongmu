@@ -1,5 +1,7 @@
 package com.jeongchongmu.domain.group.service;
 
+import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
+import com.jeongchongmu.domain.expense.Repository.TagRepository;
 import com.jeongchongmu.domain.group.dto.GroupRequest;
 import com.jeongchongmu.domain.group.dto.GroupDto;
 import com.jeongchongmu.domain.group.dto.UserSummaryDto;
@@ -33,6 +35,8 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final ExpenseRepository expenseRepository;
+    private final TagRepository tagRepository;
 
     // 이거 링크 아직 안됩니다. 처리하는 컨트롤러는 따로 만들고 있어요.
     private static final String INVITE_BASE_URL = "https://jeongchongmu-production.up.railway.app/invite/";
@@ -105,6 +109,8 @@ public class GroupService {
                 .orElseThrow(() -> new EntityNotFoundException("그룹을 찾을 수 없습니다."));
         validateOwnerPermission(group, requesterId);
 
+        expenseRepository.deleteByGroup(group);
+        tagRepository.deleteByGroup(group);
         groupRepository.delete(group);
     }
 

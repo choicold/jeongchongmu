@@ -11,6 +11,14 @@ spring:
     openai:
       api-key: ${OPENAI_API_KEY}
 
+    mcp:
+      server:
+        name: jeongchongmu-mcp-server
+        protocol: STREAMABLE
+        type: SYNC
+        annotation-scanner:
+          enabled: true
+
 supabase:
   url: ${SUPABASE_URL}
   key: ${SUPABASE_KEY}
@@ -48,6 +56,10 @@ logging:
   level:
     com.jeongchongmu: DEBUG
     org.springframework.web: DEBUG
+
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.hibernate.orm.jdbc.extract: TRACE
 
 ---
 # Supabase 공유 DB

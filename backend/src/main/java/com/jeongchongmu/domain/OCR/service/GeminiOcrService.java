@@ -21,7 +21,7 @@ public class GeminiOcrService implements OcrService {
     @Value("${spring.ai.gemini.api-key}")
     private String apiKey;
 
-    private static final String MODEL_NAME = "gemini-2.5-flash";
+    private static final String MODEL_NAME = "gemini-2.5-flash-lite";
 
     private final ObjectMapper objectMapper;
 

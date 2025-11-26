@@ -17,4 +17,7 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
 
     // 특정 그룹에 속한 모든 태그를 찾는 메서드
     List<Tag> findByGroup(Group group);
+
+    // 그룹에 속한 모든 태그 삭제
+    void deleteByGroup(Group group);
 }
