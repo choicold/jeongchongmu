@@ -5,6 +5,8 @@ import com.jeongchongmu.domain.group.entity.GroupMember;
 import com.jeongchongmu.domain.group.entity.Role;
 import com.jeongchongmu.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,4 +38,14 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
 
     // 특정 그룹에서 특정 유저를 삭제
     void deleteByGroupAndUser(Group group, User user);
+
+    //사용자의 그룹 멤버십 조회
+    Optional<GroupMember> findByUserAndGroup(User user, Group group);
+
+    //사용자 ID와 그룹 ID로 멤버십 확인 (ID만 알 때 사용)
+    @Query("SELECT COUNT(gm) > 0 FROM GroupMember gm " +
+            "WHERE gm.user.id = :userId AND gm.group.id = :groupId")
+    boolean existsByUserIdAndGroupId(@Param("userId") Long userId, @Param("groupId") Long groupId);
+
+
 }

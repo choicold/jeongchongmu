@@ -1,8 +1,11 @@
 package com.jeongchongmu.vote.dto;
 
 import com.jeongchongmu.vote.entity.Vote;
+import com.jeongchongmu.vote.entity.UserVote;
 import lombok.Builder;
 import lombok.Getter;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -11,6 +14,7 @@ import java.util.stream.Collectors;
 public class VoteResponse {
     private Long voteId;
     private Long expenseId;
+    private LocalDateTime closeAt;
     private boolean isClosed;
     private List<VoteOptionDto> options;
 
@@ -20,13 +24,14 @@ public class VoteResponse {
         private Long optionId;
         private String itemName;
         private Long price;
-        private List<Long> votedUserIds; // 이 메뉴를 선택한 사람들
+        private List<Long> votedUserIds;
     }
 
-    public static VoteResponse from(Vote vote, List<com.jeongchongmu.vote.entity.UserVote> allUserVotes) {
+    public static VoteResponse from(Vote vote, List<UserVote> allUserVotes) {
         return VoteResponse.builder()
                 .voteId(vote.getId())
                 .expenseId(vote.getExpense().getId())
+                .closeAt(vote.getCloseAt())
                 .isClosed(vote.isClosed())
                 .options(vote.getOptions().stream().map(option -> {
                     List<Long> voterIds = allUserVotes.stream()
@@ -37,7 +42,7 @@ public class VoteResponse {
                     return VoteOptionDto.builder()
                             .optionId(option.getId())
                             .itemName(option.getExpenseItem().getName())
-                            .price(option.getExpenseItem().getPrice().longValue()) // BigDecimal -> Long
+                            .price(option.getExpenseItem().getPrice())
                             .votedUserIds(voterIds)
                             .build();
                 }).collect(Collectors.toList()))

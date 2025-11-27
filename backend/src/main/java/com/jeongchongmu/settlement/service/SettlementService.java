@@ -1,6 +1,7 @@
 package com.jeongchongmu.settlement.service;
 
 import com.jeongchongmu.domain.expense.JPA.Expense;
+import com.jeongchongmu.domain.expense.JPA.ExpenseParticipant;
 import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
 import com.jeongchongmu.domain.group.entity.Group;
 import com.jeongchongmu.domain.group.repository.GroupMemberRepository;
@@ -48,8 +49,7 @@ public class SettlementService {
         Expense expense = expenseRepository.findById(request.getExpenseId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지출 내역입니다."));
 
-        // [추가] 이미 정산된 내역인지 확인 (중복 생성 방지)
-        // SettlementRepository에 findByExpenseId 혹은 findByExpense가 있어야 함
+        // 이미 정산된 내역인지 확인
         if (settlementRepository.findByExpenseId(expense.getId()).isPresent()) {
             throw new IllegalStateException("이미 정산이 진행 중이거나 완료된 지출 내역입니다.");
         }
@@ -72,37 +72,28 @@ public class SettlementService {
                 if (request.getDirectEntries() == null || request.getDirectEntries().isEmpty()) {
                     throw new IllegalArgumentException("직접 정산 내역이 없습니다.");
                 }
-
-                // [추가] 직접 정산 시 총액 검증 (입력 합계 == 지출 총액)
                 long sum = request.getDirectEntries().stream()
                         .mapToLong(DirectSettlementEntry::getAmount)
                         .sum();
-
-                // 주의: 결제자(Payer) 본인의 부담금이 directEntries에 포함되지 않는 경우라면,
-                // (총액 - 본인부담금) == 입력합계 인지 확인해야 합니다.
-                // 현재 로직상 entries의 합이 전체 금액과 같아야 한다면 아래 로직 사용:
                 if (sum != totalAmount) {
                     throw new IllegalArgumentException("입력된 금액의 합계(" + sum + ")가 지출 총액(" + totalAmount + ")과 일치하지 않습니다.");
                 }
-
                 request.getDirectEntries().forEach(entry -> participantIds.add(entry.getUserId()));
             }
             case PERCENT -> {
                 if (request.getPercentEntries() == null || request.getPercentEntries().isEmpty()) {
                     throw new IllegalArgumentException("퍼센트 정산 내역이 없습니다.");
                 }
-                // 퍼센트 합계가 100인지 확인하는 로직도 추가 가능
                 double ratioSum = request.getPercentEntries().stream()
                         .mapToDouble(PercentSettlementEntry::getRatio)
                         .sum();
                 if (Math.abs(ratioSum - 100.0) > 0.01) { // 부동소수점 오차 고려
                     throw new IllegalArgumentException("비율의 합계가 100%가 아닙니다.");
                 }
-
                 request.getPercentEntries().forEach(entry -> participantIds.add(entry.getUserId()));
             }
             case ITEM -> {
-                // ITEM 방식은 Vote 데이터 기반
+                // ITEM 방식은 Vote 데이터 기반 - 참여자는 expense.getParticipants()에서 가져옴
             }
             default -> throw new IllegalArgumentException("지원하지 않는 정산 방식입니다.");
         }
@@ -150,14 +141,15 @@ public class SettlementService {
         return SettlementResponse.from(newSettlement, totalAmount);
     }
 
-    // ================== 계산 메서드 (기존 동일) ==================
-    // calculateDivide, calculateDirect, calculatePercent, calculateItem 등은 기존 코드 유지
+    // ================== 기존 계산 메서드들 ==================
+
     private List<SettlementDetail> calculateDivide(Settlement settlement, Long totalAmount, User payer, Map<Long, User> userMap) {
         List<User> participants = new ArrayList<>(userMap.values());
         int count = participants.size();
         long splitAmount = totalAmount / count;
         long remainder = totalAmount % count;
         List<SettlementDetail> details = new ArrayList<>();
+
         for (User participant : participants) {
             if (participant.getId().equals(payer.getId())) continue;
             long finalAmount = splitAmount;
@@ -165,7 +157,12 @@ public class SettlementService {
                 finalAmount += 1;
                 remainder--;
             }
-            details.add(SettlementDetail.builder().settlement(settlement).debtor(participant).creditor(payer).amount(finalAmount).build());
+            details.add(SettlementDetail.builder()
+                    .settlement(settlement)
+                    .debtor(participant)
+                    .creditor(payer)
+                    .amount(finalAmount)
+                    .build());
         }
         return details;
     }
@@ -175,7 +172,12 @@ public class SettlementService {
         for (DirectSettlementEntry entry : entries) {
             User debtor = userMap.get(entry.getUserId());
             if (debtor.getId().equals(payer.getId())) continue;
-            details.add(SettlementDetail.builder().settlement(settlement).debtor(debtor).creditor(payer).amount(entry.getAmount()).build());
+            details.add(SettlementDetail.builder()
+                    .settlement(settlement)
+                    .debtor(debtor)
+                    .creditor(payer)
+                    .amount(entry.getAmount())
+                    .build());
         }
         return details;
     }
@@ -183,52 +185,117 @@ public class SettlementService {
     private List<SettlementDetail> calculatePercent(Settlement settlement, Long totalAmount, User payer, List<PercentSettlementEntry> entries, Map<Long, User> userMap) {
         List<SettlementDetail> details = new ArrayList<>();
         long currentTotal = 0;
+
         for (int i = 0; i < entries.size(); i++) {
             PercentSettlementEntry entry = entries.get(i);
             User debtor = userMap.get(entry.getUserId());
             long amount;
+
             if (i == entries.size() - 1) {
                 amount = totalAmount - currentTotal;
             } else {
                 amount = (long) (totalAmount * (entry.getRatio() / 100.0));
                 currentTotal += amount;
             }
+
             if (debtor.getId().equals(payer.getId())) continue;
-            details.add(SettlementDetail.builder().settlement(settlement).debtor(debtor).creditor(payer).amount(amount).build());
+            details.add(SettlementDetail.builder()
+                    .settlement(settlement)
+                    .debtor(debtor)
+                    .creditor(payer)
+                    .amount(amount)
+                    .build());
         }
         return details;
     }
 
+    /**
+     * ITEM 방식 정산 계산 (개선됨)
+     *
+     * 규칙:
+     * - 투표한 사람 → 자신이 선택한 항목에 대해서만 1/n
+     * - 투표 안 한 사람 → 모든 항목에 대해서 1/n (패널티)
+     */
     private List<SettlementDetail> calculateItem(Settlement settlement, User payer, Expense expense) {
-        Vote vote = voteRepository.findByExpense(expense).orElseThrow(() -> new IllegalArgumentException("투표 내역이 없습니다. 먼저 투표를 생성해주세요."));
+        // 1. 투표 조회
+        Vote vote = voteRepository.findByExpense(expense)
+                .orElseThrow(() -> new IllegalArgumentException("투표 내역이 없습니다. 먼저 투표를 생성해주세요."));
+
+        // 2. 투표가 마감되었는지 확인
+        if (!vote.isClosed()) {
+            throw new IllegalStateException("투표가 아직 마감되지 않았습니다. 마감 후 정산해주세요.");
+        }
+
+        // 3. 지출 참여자 목록 조회
+        Set<Long> allParticipantIds = expense.getParticipants().stream()
+                .map(p -> p.getUser().getId())
+                .collect(Collectors.toSet());
+
+        // 4. 투표한 사용자 ID 목록 조회
+        Set<Long> votedUserIds = userVoteRepository.findVotedUserIdsByVote(vote);
+
+        // 5. 미투표자 ID 목록 = 전체 참여자 - 투표한 사람
+        Set<Long> nonVotedUserIds = new HashSet<>(allParticipantIds);
+        nonVotedUserIds.removeAll(votedUserIds);
+
+        // 6. 각 사용자별 부담 금액 계산
         Map<Long, Long> userAmountMap = new HashMap<>();
+
         for (VoteOption option : vote.getOptions()) {
             List<UserVote> votes = userVoteRepository.findByVoteOption(option);
-            int eaterCount = votes.size();
+            long itemPrice = option.getExpenseItem().getPrice();
+            int quantity = option.getExpenseItem().getQuantity();
+            long totalItemPrice = itemPrice * quantity;
+
+            // 이 항목을 선택한 사람들 + 미투표자들
+            Set<Long> eaterIds = votes.stream()
+                    .map(uv -> uv.getUser().getId())
+                    .collect(Collectors.toSet());
+            eaterIds.addAll(nonVotedUserIds);  // 미투표자는 모든 항목에 포함
+
+            int eaterCount = eaterIds.size();
             if (eaterCount == 0) continue;
-            long price = option.getExpenseItem().getPrice();
-            long splitPrice = price / eaterCount;
-            long remainder = price % eaterCount;
-            for (UserVote uv : votes) {
-                User eater = uv.getUser();
-                if (eater.getId().equals(payer.getId())) continue;
+
+            long splitPrice = totalItemPrice / eaterCount;
+            long remainder = totalItemPrice % eaterCount;
+
+            for (Long eaterId : eaterIds) {
                 long amountToAdd = splitPrice;
                 if (remainder > 0) {
                     amountToAdd += 1;
                     remainder--;
                 }
-                userAmountMap.merge(eater.getId(), amountToAdd, Long::sum);
+                userAmountMap.merge(eaterId, amountToAdd, Long::sum);
             }
         }
+
+        // 7. SettlementDetail 생성
         List<SettlementDetail> details = new ArrayList<>();
+
         if (!userAmountMap.isEmpty()) {
-            Map<Long, User> itemUserMap = userRepository.findAllById(userAmountMap.keySet()).stream().collect(Collectors.toMap(User::getId, Function.identity()));
+            Map<Long, User> userMap = userRepository.findAllById(userAmountMap.keySet())
+                    .stream()
+                    .collect(Collectors.toMap(User::getId, Function.identity()));
+
             for (Map.Entry<Long, Long> entry : userAmountMap.entrySet()) {
-                User debtor = itemUserMap.get(entry.getKey());
+                Long debtorId = entry.getKey();
+                Long amount = entry.getValue();
+
+                // 결제자는 제외
+                if (debtorId.equals(payer.getId())) continue;
+
+                User debtor = userMap.get(debtorId);
                 if (debtor == null) continue;
-                details.add(SettlementDetail.builder().settlement(settlement).debtor(debtor).creditor(payer).amount(entry.getValue()).build());
+
+                details.add(SettlementDetail.builder()
+                        .settlement(settlement)
+                        .debtor(debtor)
+                        .creditor(payer)
+                        .amount(amount)
+                        .build());
             }
         }
+
         return details;
     }
 }

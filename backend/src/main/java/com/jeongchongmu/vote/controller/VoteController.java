@@ -1,10 +1,15 @@
 package com.jeongchongmu.vote.controller;
 
+import com.jeongchongmu.user.User;
 import com.jeongchongmu.vote.dto.CastVoteRequest;
+import com.jeongchongmu.vote.dto.CreateVoteRequest;
+import com.jeongchongmu.vote.dto.ExtendVoteRequest;
 import com.jeongchongmu.vote.dto.VoteResponse;
 import com.jeongchongmu.vote.service.VoteService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,19 +19,72 @@ public class VoteController {
 
     private final VoteService voteService;
 
-    @PostMapping("/{expenseId}")//투표 만들기
-    public ResponseEntity<Long> createVote(@PathVariable Long expenseId) {
-        return ResponseEntity.ok(voteService.createVote(expenseId));///투표 아무나 만들 수 있는거 아닌가요?
+    /**
+     * 투표 생성
+     * - 그룹 멤버만 가능
+     */
+    @PostMapping("/{expenseId}")
+    public ResponseEntity<Long> createVote(
+            @PathVariable Long expenseId,
+            @Valid @RequestBody(required = false) CreateVoteRequest request,
+            @AuthenticationPrincipal User user) {
+
+        Long voteId = voteService.createVote(expenseId, request, user);
+        return ResponseEntity.ok(voteId);
     }
 
-    @PostMapping("/cast")//투표하기
-    public ResponseEntity<String> castVote(@RequestBody CastVoteRequest request) {/// CastVoteRequest에 id빼고 security에게 주입 받느건 어때?
-        voteService.castVote(request);
+    /**
+     * 투표하기 (토글 방식)
+     * - 그룹 멤버만 가능
+     * - 마감 전에만 가능
+     */
+    @PostMapping("/cast")
+    public ResponseEntity<String> castVote(
+            @Valid @RequestBody CastVoteRequest request,
+            @AuthenticationPrincipal User user) {
+
+        voteService.castVote(request, user);
         return ResponseEntity.ok("투표 반영 완료");
     }
 
-    @GetMapping("/{expenseId}")//투표현황
-    public ResponseEntity<VoteResponse> getVoteStatus(@PathVariable Long expenseId) {/// 아무나 다 볼 수 있잖아요
-        return ResponseEntity.ok(voteService.getVoteStatus(expenseId));
+    /**
+     * 투표 현황 조회
+     * - 그룹 멤버만 가능
+     */
+    @GetMapping("/{expenseId}")
+    public ResponseEntity<VoteResponse> getVoteStatus(
+            @PathVariable Long expenseId,
+            @AuthenticationPrincipal User user) {
+
+        return ResponseEntity.ok(voteService.getVoteStatus(expenseId, user));
+    }
+
+    /**
+     * 투표 즉시 마감
+     * - 그룹 OWNER만 가능
+     * - 정산 시작 전에만 가능
+     */
+    @PostMapping("/{expenseId}/close")
+    public ResponseEntity<String> closeVote(
+            @PathVariable Long expenseId,
+            @AuthenticationPrincipal User user) {
+
+        voteService.closeVote(expenseId, user);
+        return ResponseEntity.ok("투표가 마감되었습니다.");
+    }
+
+    /**
+     * 투표 기간 연장
+     * - 그룹 OWNER만 가능
+     * - 정산 시작 전에만 가능
+     */
+    @PostMapping("/{expenseId}/extend")
+    public ResponseEntity<String> extendVote(
+            @PathVariable Long expenseId,
+            @Valid @RequestBody ExtendVoteRequest request,
+            @AuthenticationPrincipal User user) {
+
+        voteService.extendVote(expenseId, request, user);
+        return ResponseEntity.ok("투표 기간이 연장되었습니다.");
     }
 }
