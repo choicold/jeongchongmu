@@ -55,4 +55,10 @@ public class User extends BaseEntity {
     public void updateFcmToken(String token) {
         this.fcmToken = token;
     }
+
+    public void updateProfile(String name, String bankName, String accountNumber) {
+        this.name = name;
+        this.bankName = bankName;
+        this.accountNumber = accountNumber;
+    }
 }

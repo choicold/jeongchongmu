@@ -30,17 +30,28 @@ public class SettlementController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * (추가) 정산 내역 단건 조회 API
-     * [GET] /api/settlements/{settlementId}
-     */
-    // @GetMapping("/{settlementId}")
-    // public ResponseEntity<SettlementResponse> getSettlement(
-    //         @PathVariable Long settlementId
-    // ) {
-    //     // TODO: Service에 getSettlement(settlementId) 메서드 만들어서 호출
-    //     // SettlementResponse response = settlementService.getSettlement(settlementId);
-    //     // return ResponseEntity.ok(response);
-    // }
+    // [R] 정산 단건 조회
+    @GetMapping("/{settlementId}")
+    public ResponseEntity<SettlementResponse> getSettlement(@PathVariable Long settlementId) {
+        SettlementResponse response = settlementService.getSettlement(settlementId);
+        return ResponseEntity.ok(response);
+    }
+
+    // [U] 정산 수정 (재정산)
+    @PutMapping("/{settlementId}")
+    public ResponseEntity<SettlementResponse> updateSettlement(
+            @PathVariable Long settlementId,
+            @RequestBody SettlementCreateRequest request // 생성과 동일한 정보로 수정한다고 가정
+    ) {
+        SettlementResponse response = settlementService.updateSettlement(settlementId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    // [D] 정산 삭제
+    @DeleteMapping("/{settlementId}")
+    public ResponseEntity<Void> deleteSettlement(@PathVariable Long settlementId) {
+        settlementService.deleteSettlement(settlementId);
+        return ResponseEntity.noContent().build();
+    }
 
 }

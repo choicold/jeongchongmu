@@ -136,6 +136,7 @@ public class GroupMemberService {
     private GroupMemberDto toGroupMemberDto(GroupMember member) {
         return new GroupMemberDto(
                 member.getId(),
+                member.getGroup().getId(),
                 new UserSummaryDto(member.getUser().getId(), member.getUser().getName()),
                 member.getRole(),
                 member.getCreatedAt()

@@ -83,6 +83,59 @@ public class SettlementService {
         return SettlementResponse.from(newSettlement, totalAmount);
     }
 
+    // [R] 정산 조회 로직
+    public SettlementResponse getSettlement(Long settlementId) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 정산 내역이 존재하지 않습니다. id=" + settlementId));
+
+        // 기존에 만들어둔 Response 변환 로직 재사용 (Expense의 totalAmount 필요)
+        Long totalAmount = settlement.getExpense().getAmount();
+        return SettlementResponse.from(settlement, totalAmount);
+    }
+
+
+    // [U] 정산 수정 로직
+    @Transactional
+    public SettlementResponse updateSettlement(Long settlementId, SettlementCreateRequest request) {
+        // 1. 기존 정산 조회
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 정산 내역이 존재하지 않습니다."));
+
+        // 2. 기존 상세 내역(Details) 삭제 (초기화)
+        settlement.getDetails().clear();
+
+        // 3. 재계산에 필요한 기본 정보 준비
+        User payer = settlement.getExpense().getPayer();
+        Long totalAmount = settlement.getExpense().getAmount();
+
+        // 참여자 목록 조회 추가
+        // request로 들어온 ID들을 이용해 실제 User 리스트를 조회합니다.
+        List<User> participants = userRepository.findAllById(request.getParticipantUserIds());
+
+        // 4. 새로운 방식에 맞춰 재계산
+        switch (request.getMethod()) {
+            case N_BUN_1 -> calculateDivide(settlement, totalAmount, payer, participants); // 이제 participants가 정상적으로 들어갑니다.
+            case DIRECT -> calculateDirect(settlement, payer, request.getDirectEntries());
+            case PERCENT -> calculatePercent(settlement, totalAmount, payer, request.getPercentEntries());
+            case ITEM -> calculateItem(settlement, payer, settlement.getExpense());
+        }
+
+        // 5. 변경된 정산 상태 저장 (JPA Dirty Checking에 의해 자동 반영되지만 명시적 저장도 가능)
+        settlementRepository.save(settlement);
+
+        return SettlementResponse.from(settlement, totalAmount);
+    }
+
+    // [D] 정산 삭제 로직
+    @Transactional
+    public void deleteSettlement(Long settlementId) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 정산 내역이 존재하지 않습니다."));
+
+        settlementRepository.delete(settlement);
+    }
+
+
     // N분의 1 계산
     private void calculateDivide(Settlement settlement, Long totalAmount, User payer, List<User> participants) {
         int participantCount = participants.size();

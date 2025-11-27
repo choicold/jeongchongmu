@@ -16,11 +16,11 @@ import java.util.Set;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
 @Entity
-@Table(name = "Expenses")
+@Table(name = "expenses")
 public class Expense extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -61,7 +61,7 @@ public class Expense extends BaseEntity {
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "ExpenseTags", // 매핑 테이블 이름
+            name = "expense_tags", // 매핑 테이블 이름
             joinColumns = @JoinColumn(name = "expense_id"), // Expense(현재 엔티티)의 FK
             inverseJoinColumns = @JoinColumn(name = "tag_id")  // Tag(반대편 엔티티)의 FK
     )

@@ -12,14 +12,14 @@ import java.util.Set;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Getter
-@Table(name = "Tags", uniqueConstraints = {
+@Table(name = "tags", uniqueConstraints = {
         @UniqueConstraint(name = "uk_group_id_tag_name",
         columnNames = {"group_id", "name"})
 })
 public class Tag {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, length = 50)

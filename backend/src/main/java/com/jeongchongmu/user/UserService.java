@@ -3,6 +3,8 @@ package com.jeongchongmu.user;
 import com.jeongchongmu.common.JwtUtil;
 import com.jeongchongmu.user.dto.LoginRequestDto;
 import com.jeongchongmu.user.dto.SignUpRequestDto;
+import com.jeongchongmu.user.dto.UserProfileResponseDto;
+import com.jeongchongmu.user.dto.UserUpdateRequestDto;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -48,5 +50,20 @@ public class UserService {
         String token = jwtUtil.createToken(user.getEmail());
 
         return token;
+    }
+
+    @Transactional(readOnly = true)
+    public UserProfileResponseDto getUserProfile(User user) {
+        return UserProfileResponseDto.from(user);
+    }
+
+    @Transactional
+    public UserProfileResponseDto updateUserProfile(User user, UserUpdateRequestDto updateRequestDto) {
+        User foundUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        foundUser.updateProfile(updateRequestDto.getName(), updateRequestDto.getBankName(), updateRequestDto.getAccountNumber());
+
+        return UserProfileResponseDto.from(foundUser);
     }
 }
