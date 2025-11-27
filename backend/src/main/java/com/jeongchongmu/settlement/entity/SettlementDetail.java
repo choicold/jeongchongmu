@@ -33,8 +33,8 @@ public class SettlementDetail extends BaseEntity {
     @JoinColumn(name = "creditor_id", nullable = false)
     private User creditor;
 
-    // 보내야 할 금액 (Expense.java와 맞춰 BigDecimal 사용)
-    @Column(nullable = false, precision = 10, scale = 2)
+    // 보내야 할 금액
+    @Column(nullable = false)
     private long amount;
 
     @Column(nullable = false)

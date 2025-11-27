@@ -3,9 +3,11 @@ package com.jeongchongmu.settlement.controller;
 import com.jeongchongmu.settlement.dto.SettlementCreateRequest;
 import com.jeongchongmu.settlement.dto.SettlementResponse;
 import com.jeongchongmu.settlement.service.SettlementService;
+import com.jeongchongmu.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,14 +23,16 @@ public class SettlementController {
      */
     @PostMapping
     public ResponseEntity<SettlementResponse> createSettlement(
-            @RequestBody SettlementCreateRequest request
+            @RequestBody SettlementCreateRequest request,
+            @AuthenticationPrincipal User user // Spring Security 인증 유저 주입
     ) {
-        // Service의 createSettlement 메서드 호출
-        SettlementResponse response = settlementService.createSettlement(request);
+        // 인증된 유저(user)가 정산을 요청함
+        SettlementResponse response = settlementService.createSettlement(request, user);
 
-        // 생성 성공 시, 201 Created 상태와 함께 정산 결과 반환
+        // "/api/settlements"로 오는 요청을 이 컨트롤러가 처리
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
 
     /**
      * (추가) 정산 내역 단건 조회 API
