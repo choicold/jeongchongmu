@@ -2,7 +2,12 @@ package com.jeongchongmu.vote.service;
 
 import com.jeongchongmu.domain.expense.JPA.Expense;
 import com.jeongchongmu.domain.expense.JPA.ExpenseItem;
+import com.jeongchongmu.domain.expense.JPA.ExpenseParticipant;
 import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
+import com.jeongchongmu.domain.group.entity.Group;
+import com.jeongchongmu.domain.group.repository.GroupMemberRepository;
+import com.jeongchongmu.domain.notification.entity.NotificationType;
+import com.jeongchongmu.domain.notification.service.NotificationService;
 import com.jeongchongmu.user.User;
 import com.jeongchongmu.user.UserRepository;
 import com.jeongchongmu.vote.dto.CastVoteRequest;
@@ -18,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,16 +35,21 @@ public class VoteService {
     private final UserVoteRepository userVoteRepository;
     private final ExpenseRepository expenseRepository;
     private final UserRepository userRepository;
+    private final GroupMemberRepository groupMemberRepository;
+    private final NotificationService notificationService;
 
-    // 1. 투표 생성 (지출이 등록되면 호출하거나, 별도로 호출)
+    // 1. 투표 생성 (수정됨)
     public Long createVote(Long expenseId) {
         Expense expense = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new IllegalArgumentException("지출 없음"));
 
-        if (voteRepository.findByExpense(expense).isPresent()) {
-            throw new IllegalStateException("이미 투표가 생성되었습니다.");
+        // 변경: 있으면 해당 Vote의 ID를 바로 반환 (프론트엔드는 성공한 것으로 간주하고 이동 가능)
+        var existingVote = voteRepository.findByExpense(expense);
+        if (existingVote.isPresent()) {
+            return existingVote.get().getId();
         }
 
+        // --- 아래는 기존 생성 로직과 동일 ---
         Vote vote = Vote.builder().expense(expense).build();
         voteRepository.save(vote);
 
@@ -50,6 +61,21 @@ public class VoteService {
                     .build();
             voteOptionRepository.save(option);
         }
+
+        // 푸시 알림 전송 (VOTE_CREATED)
+        // 해당 지출의 참여자들에게 알림 전송
+        Group group = expense.getGroup();
+        List<User> participants = expense.getParticipants().stream()
+                .map(ExpenseParticipant::getUser)
+                .collect(Collectors.toList());
+
+        notificationService.sendToMultipleUsers(
+                participants,
+                NotificationType.VOTE_CREATED,
+                "항목별 정산 투표가 시작되었습니다. 본인이 먹은 메뉴를 선택해주세요.",
+                expenseId
+        );
+
         return vote.getId();
     }
 
@@ -66,6 +92,35 @@ public class VoteService {
             UserVote userVote = UserVote.builder().user(user).voteOption(option).build();
             userVoteRepository.save(userVote);
         }
+
+        // 투표 완료 여부 확인
+        Vote vote = option.getVote();
+        Expense expense = vote.getExpense();
+
+        // 참여자 목록 가져오기
+        List<User> participants = expense.getParticipants().stream()
+                .map(ExpenseParticipant::getUser)
+                .collect(Collectors.toList());
+
+        // 모든 참여자가 투표했는지 확인
+        boolean allVoted = participants.stream()
+                .allMatch(participant -> {
+                    // 각 참여자가 최소 1개 이상의 항목에 투표했는지 확인
+                    return vote.getOptions().stream()
+                            .anyMatch(opt -> userVoteRepository.existsByUserAndVoteOption(participant, opt));
+                });
+
+        // 모든 참여자가 투표를 완료했으면 지출자(payer)에게 알림 전송
+        if (allVoted) {
+            User payer = expense.getPayer();
+
+            notificationService.send(
+                    payer,
+                    NotificationType.VOTE_COMPLETED,
+                    "모든 참여자가 투표를 완료했습니다. 정산 결과를 확인하세요.",
+                    expense.getId()
+            );
+        }
     }
 
     // 3. 투표 현황 조회
@@ -80,5 +135,31 @@ public class VoteService {
         List<UserVote> allVotes = userVoteRepository.findAll();
 
         return VoteResponse.from(vote, allVotes);
+    }
+
+    // 4. 투표 삭제 (투표를 다시 진행하고 싶을 때)
+    public void deleteVote(Long expenseId) {
+        Expense expense = expenseRepository.findById(expenseId)
+                .orElseThrow(() -> new IllegalArgumentException("지출 없음"));
+        Vote vote = voteRepository.findByExpense(expense)
+                .orElseThrow(() -> new IllegalArgumentException("투표가 존재하지 않습니다."));
+
+        // 투표가 이미 마감되었는지 확인
+        if (vote.isClosed()) {
+            throw new IllegalStateException("이미 마감된 투표는 삭제할 수 없습니다.");
+        }
+
+        // 투표와 관련된 모든 데이터 삭제
+        // 1. 먼저 UserVote 삭제
+        List<VoteOption> options = voteOptionRepository.findByVote(vote);
+        for (VoteOption option : options) {
+            userVoteRepository.deleteAllByVoteOption(option);
+        }
+
+        // 2. VoteOption 삭제
+        voteOptionRepository.deleteAllByVote(vote);
+
+        // 3. Vote 삭제
+        voteRepository.delete(vote);
     }
 }

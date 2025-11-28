@@ -36,6 +36,9 @@ public class Group extends BaseEntity {
     @Column(length=1000)
     private String description;
 
+    @Column(length=10)
+    private String icon;
+
     @ManyToOne(fetch=FetchType.LAZY)
     @JoinColumn(name="creator_id", nullable=false, updatable=false)
     private User creator;
@@ -52,6 +55,10 @@ public class Group extends BaseEntity {
     public void updateInfo(String name, String description) {
         this.name = name;
         this.description = description;
+    }
+
+    public void updateIcon(String icon) {
+        this.icon = icon;
     }
 
     public void regenerateInviteCode(String newInviteCode) {

@@ -17,9 +17,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/expenses") // 👈 이 컨트롤러의 기본 API 경로
 @RequiredArgsConstructor
-public class expenseController {
+public class ExpenseController {
 
-    private final expenseService expenseService;
+    private final ExpenseService expenseService;
 
     /**
      * [저장] (1. createExpense)

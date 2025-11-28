@@ -29,4 +29,10 @@ public class VoteController {
     public ResponseEntity<VoteResponse> getVoteStatus(@PathVariable Long expenseId) {
         return ResponseEntity.ok(voteService.getVoteStatus(expenseId));
     }
+
+    @DeleteMapping("/{expenseId}")
+    public ResponseEntity<String> deleteVote(@PathVariable Long expenseId) {
+        voteService.deleteVote(expenseId);
+        return ResponseEntity.ok("투표가 삭제되었습니다.");
+    }
 }

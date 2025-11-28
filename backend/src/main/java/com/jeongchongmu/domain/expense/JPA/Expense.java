@@ -20,7 +20,8 @@ import java.util.Set;
 public class Expense extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "expense_seq")
+    @SequenceGenerator(name = "expense_seq", sequenceName = "expenses_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -79,6 +80,11 @@ public class Expense extends BaseEntity {
         // ExpenseParticipant는 생성자에서 이미 expense를 설정하므로 여기서는 생략
     }
 
+    public void removeParticipant(ExpenseParticipant participant) {
+        this.participants.remove(participant);
+        participant.setExpense(null); // 양방향 연관관계 해제 (중요)
+    }
+
     public void addTag(Tag tag) {
         this.tags.add(tag);
         tag.getExpenses().add(this); // 양방향 관계 설정
@@ -108,9 +114,4 @@ public class Expense extends BaseEntity {
             this.expenseData = expenseData;
         }
     }
-
-
-
-
-
 }

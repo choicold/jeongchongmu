@@ -2,6 +2,7 @@ package com.jeongchongmu.user;
 
 import com.jeongchongmu.common.JwtUtil;
 import com.jeongchongmu.user.dto.LoginRequestDto;
+import com.jeongchongmu.user.dto.LoginResponseDto;
 import com.jeongchongmu.user.dto.SignUpRequestDto;
 import com.jeongchongmu.user.dto.UserProfileResponseDto;
 import com.jeongchongmu.user.dto.UserUpdateRequestDto;
@@ -39,7 +40,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public String login(LoginRequestDto loginRequestDto) {
+    public LoginResponseDto login(LoginRequestDto loginRequestDto) {
         User user = userRepository.findByEmail(loginRequestDto.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("등록된 이메일이 없습니다."));
 
@@ -49,7 +50,7 @@ public class UserService {
 
         String token = jwtUtil.createToken(user.getEmail());
 
-        return token;
+        return LoginResponseDto.of(token, user);
     }
 
     @Transactional(readOnly = true)
@@ -65,5 +66,36 @@ public class UserService {
         foundUser.updateProfile(updateRequestDto.getName(), updateRequestDto.getBankName(), updateRequestDto.getAccountNumber());
 
         return UserProfileResponseDto.from(foundUser);
+    }
+
+    /**
+     * FCM 토큰 등록/업데이트
+     * 사용자의 FCM 토큰을 저장하거나 업데이트합니다.
+     *
+     * @param user 로그인한 사용자
+     * @param fcmToken FCM 토큰
+     */
+    @Transactional
+    public void updateFcmToken(User user, String fcmToken) {
+        User foundUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        foundUser.updateFcmToken(fcmToken);
+        userRepository.save(foundUser);
+    }
+
+    /**
+     * FCM 토큰 삭제
+     * 로그아웃 시 FCM 토큰을 삭제합니다.
+     *
+     * @param user 로그인한 사용자
+     */
+    @Transactional
+    public void deleteFcmToken(User user) {
+        User foundUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        foundUser.updateFcmToken(null);
+        userRepository.save(foundUser);
     }
 }

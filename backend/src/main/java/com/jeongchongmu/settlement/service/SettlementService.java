@@ -6,17 +6,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.jeongchongmu.domain.expense.JPA.Expense;
 import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
 import com.jeongchongmu.domain.group.entity.Group;
 import com.jeongchongmu.domain.group.repository.GroupMemberRepository;
+import com.jeongchongmu.domain.notification.entity.NotificationType;
+import com.jeongchongmu.domain.notification.service.NotificationService;
 import com.jeongchongmu.user.User;
 import com.jeongchongmu.user.UserRepository;
 import com.jeongchongmu.settlement.dto.DirectSettlementEntry;
 import com.jeongchongmu.settlement.dto.PercentSettlementEntry;
 import com.jeongchongmu.settlement.dto.SettlementCreateRequest;
 import com.jeongchongmu.settlement.dto.SettlementResponse;
+import com.jeongchongmu.settlement.dto.SettlementSummaryResponse;
 import com.jeongchongmu.settlement.entity.Settlement;
 import com.jeongchongmu.settlement.entity.SettlementDetail;
 import com.jeongchongmu.settlement.enums.SettlementStatus;
@@ -41,6 +45,7 @@ public class SettlementService {
     private final GroupMemberRepository groupMemberRepository;
     private final VoteRepository voteRepository;
     private final UserVoteRepository userVoteRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public SettlementResponse createSettlement(SettlementCreateRequest request) {
@@ -49,11 +54,17 @@ public class SettlementService {
         Expense expense = expenseRepository.findById(request.getExpenseId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지출 내역입니다."));
 
+        // 2. 중복 정산 확인
+        settlementRepository.findByExpenseId(request.getExpenseId())
+                .ifPresent(settlement -> {
+                    throw new IllegalStateException("해당 지출에 대한 정산이 이미 존재합니다. 정산 ID: " + settlement.getId());
+                });
+
         long totalAmount = expense.getAmount();
         User payer = expense.getPayer();
         Group group = expense.getGroup();
 
-        // 2. 참여자 검증
+        // 3. 참여자 검증
         List<User> participants = userRepository.findAllById(request.getParticipantUserIds());
         if (participants.size() != request.getParticipantUserIds().size()) {
             throw new IllegalArgumentException("참여 멤버 중 존재하지 않는 유저가 있습니다.");
@@ -64,7 +75,7 @@ public class SettlementService {
             }
         }
 
-        // 3. 정산 생성
+        // 4. 정산 생성
         Settlement newSettlement = Settlement.builder()
                 .expense(expense)
                 .method(request.getMethod())
@@ -72,13 +83,28 @@ public class SettlementService {
                 .build();
         settlementRepository.save(newSettlement);
 
-        // 4. 계산 로직 분기
+        // 5. 계산 로직 분기
         switch (request.getMethod()) {
             case N_BUN_1 -> calculateDivide(newSettlement, totalAmount, payer, participants);
             case DIRECT -> calculateDirect(newSettlement, payer, request.getDirectEntries());
             case PERCENT -> calculatePercent(newSettlement, totalAmount, payer, request.getPercentEntries());
             case ITEM -> calculateItem(newSettlement, payer, expense);
         }
+
+        // 6. 푸시 알림 전송 (SETTLEMENT_REQUEST)
+        // 정산에 포함된 참여자들에게 알림 전송 (본인 제외)
+        List<User> debtors = newSettlement.getDetails().stream()
+                .map(SettlementDetail::getDebtor)
+                .filter(user -> !user.getId().equals(payer.getId()))
+                .distinct()
+                .collect(Collectors.toList());
+
+        notificationService.sendToMultipleUsers(
+                debtors,
+                NotificationType.SETTLEMENT_REQUEST,
+                payer.getName() + "님이 정산을 요청했습니다. 확인 후 송금해주세요.",
+                newSettlement.getId()
+        );
 
         return SettlementResponse.from(newSettlement, totalAmount);
     }
@@ -89,6 +115,15 @@ public class SettlementService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 정산 내역이 존재하지 않습니다. id=" + settlementId));
 
         // 기존에 만들어둔 Response 변환 로직 재사용 (Expense의 totalAmount 필요)
+        Long totalAmount = settlement.getExpense().getAmount();
+        return SettlementResponse.from(settlement, totalAmount);
+    }
+
+    // [R] 지출 ID로 정산 조회 로직
+    public SettlementResponse getSettlementByExpenseId(Long expenseId) {
+        Settlement settlement = settlementRepository.findByExpenseId(expenseId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 지출에 대한 정산이 존재하지 않습니다. expenseId=" + expenseId));
+
         Long totalAmount = settlement.getExpense().getAmount();
         return SettlementResponse.from(settlement, totalAmount);
     }
@@ -133,6 +168,108 @@ public class SettlementService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 정산 내역이 존재하지 않습니다."));
 
         settlementRepository.delete(settlement);
+    }
+
+    /**
+     * 사용자의 정산 현황 요약 조회
+     * 사용자가 받아야 할 돈과 보내야 할 돈의 총계를 반환합니다.
+     *
+     * @param userId - 사용자 ID
+     * @return SettlementSummaryResponse - 받을 돈과 보낼 돈의 총계
+     */
+    public SettlementSummaryResponse getMySettlementSummary(Long userId) {
+        // 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        // 완료되지 않은 정산 내역만 조회
+        List<SettlementDetail> allDetails = settlementDetailRepository.findAll();
+
+        long toReceive = 0L;
+        long toSend = 0L;
+
+        for (SettlementDetail detail : allDetails) {
+            // 완료된 정산은 제외
+            if (detail.getSettlement().getStatus() == SettlementStatus.COMPLETED) {
+                continue;
+            }
+
+            // 송금 완료된 내역은 제외
+            if (detail.isSent()) {
+                continue;
+            }
+
+            // 내가 채권자인 경우 (받을 돈)
+            if (detail.getCreditor().getId().equals(userId)) {
+                toReceive += detail.getAmount();
+            }
+
+            // 내가 채무자인 경우 (보낼 돈)
+            if (detail.getDebtor().getId().equals(userId)) {
+                toSend += detail.getAmount();
+            }
+        }
+
+        return SettlementSummaryResponse.builder()
+                .toReceive(toReceive)
+                .toSend(toSend)
+                .build();
+    }
+
+    /**
+     * 송금 확인 처리
+     * 사용자가 송금 버튼을 누르면 호출되며, 모든 멤버가 송금 완료 시 정산 상태를 COMPLETED로 변경합니다.
+     *
+     * @param settlementId - 정산 ID
+     * @param debtorId - 채무자(송금하는 사람) ID
+     * @param creditorId - 채권자(받는 사람) ID
+     * @return SettlementResponse - 업데이트된 정산 정보
+     */
+    @Transactional
+    public SettlementResponse confirmTransfer(Long settlementId, Long debtorId, Long creditorId) {
+        // 1. 정산 조회
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 정산 내역이 존재하지 않습니다."));
+
+        // 2. 해당하는 SettlementDetail 찾기
+        SettlementDetail targetDetail = settlement.getDetails().stream()
+                .filter(detail -> detail.getDebtor().getId().equals(debtorId)
+                        && detail.getCreditor().getId().equals(creditorId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("해당하는 정산 내역을 찾을 수 없습니다."));
+
+        // 3. 송금 완료 처리
+        targetDetail.markAsSent();
+
+        // 4. 모든 정산 내역이 송금 완료되었는지 확인
+        boolean allSent = settlement.getDetails().stream()
+                .allMatch(SettlementDetail::isSent);
+
+        // 5. 모두 완료되었으면 정산 상태를 COMPLETED로 변경
+        if (allSent) {
+            settlement.complete();
+
+            // 푸시 알림 전송 (SETTLEMENT_COMPLETED)
+            // 모든 참여자에게 알림 전송
+            List<User> allParticipants = settlement.getDetails().stream()
+                    .flatMap(detail -> List.of(detail.getDebtor(), detail.getCreditor()).stream())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            notificationService.sendToMultipleUsers(
+                    allParticipants,
+                    NotificationType.SETTLEMENT_COMPLETED,
+                    "모든 정산이 완료되었습니다!",
+                    settlement.getId()
+            );
+        }
+
+        // 6. 변경사항 저장 (JPA Dirty Checking에 의해 자동 저장되지만 명시적으로 저장)
+        settlementRepository.save(settlement);
+
+        // 7. 업데이트된 정산 정보 반환
+        Long totalAmount = settlement.getExpense().getAmount();
+        return SettlementResponse.from(settlement, totalAmount);
     }
 
 

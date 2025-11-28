@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 public record GroupRequest(
         @NotBlank
         String name,
-        String description
+        String description,
+        String icon
         // creatorId는 로그인 정보에서 찾으면 됨
 ) {}

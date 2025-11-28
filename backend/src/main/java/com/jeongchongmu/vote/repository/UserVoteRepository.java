@@ -9,5 +9,6 @@ import java.util.List;
 public interface UserVoteRepository extends JpaRepository<UserVote, Long> {
     List<UserVote> findByVoteOption(VoteOption voteOption);
     void deleteByUserAndVoteOption(User user, VoteOption voteOption); // 투표 취소용
+    void deleteAllByVoteOption(VoteOption voteOption); // 투표 삭제 시 모든 유저 투표 삭제
     boolean existsByUserAndVoteOption(User user, VoteOption voteOption);
 }

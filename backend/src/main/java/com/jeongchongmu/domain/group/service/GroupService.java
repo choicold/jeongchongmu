@@ -49,6 +49,7 @@ public class GroupService {
         Group group = Group.builder()
                 .name(request.name())
                 .description(request.description())
+                .icon(request.icon())
                 .creator(creator)
                 .inviteCode(inviteCode)
                 .build();
@@ -94,6 +95,9 @@ public class GroupService {
         validateOwnerPermission(group, requesterId);
 
         group.updateInfo(request.name(), request.description());
+        if (request.icon() != null) {
+            group.updateIcon(request.icon());
+        }
 
         return toGroupDto(group);
     }
@@ -161,6 +165,7 @@ public class GroupService {
                 group.getId(),
                 group.getName(),
                 group.getDescription(),
+                group.getIcon(),
                 group.getInviteCode(),
                 INVITE_BASE_URL + group.getInviteCode(),
                 new UserSummaryDto(group.getCreator().getId(), group.getCreator().getName()),

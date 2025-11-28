@@ -17,10 +17,11 @@ public record ExpenseDetailDTO(
         Long groupId,
         List<ExpenseItemDTO> items,
         List<String> participants,
-        List<String> tagNames
+        List<String> tagNames,
+        Long settlementId  // 정산 ID (정산이 생성되지 않은 경우 null)
 ) {
-    // 엔티티를 DTO로 변환하는 헬퍼 메서드
-    public static ExpenseDetailDTO fromEntity(Expense expense) {
+    // 엔티티를 DTO로 변환하는 헬퍼 메서드 (settlementId 포함)
+    public static ExpenseDetailDTO fromEntity(Expense expense, Long settlementId) {
 
         // 1. 아이템 상세 정보 변환 (이름, 가격, 수량)
         List<ExpenseItemDTO> itemDtos = expense.getItems().stream()
@@ -51,7 +52,13 @@ public record ExpenseDetailDTO(
                 expense.getGroup().getId(),
                 itemDtos,
                 participantNames,
-                tagNames
+                tagNames,
+                settlementId
         );
+    }
+
+    // 오버로드된 메서드 (기존 호환성 유지 - settlementId 없이 호출 가능)
+    public static ExpenseDetailDTO fromEntity(Expense expense) {
+        return fromEntity(expense, null);
     }
 }

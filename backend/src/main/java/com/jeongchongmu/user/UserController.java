@@ -1,6 +1,7 @@
 package com.jeongchongmu.user;
 
 
+import com.jeongchongmu.user.dto.FcmTokenRequestDto;
 import com.jeongchongmu.user.dto.LoginRequestDto;
 import com.jeongchongmu.user.dto.LoginResponseDto;
 import com.jeongchongmu.user.dto.SignUpRequestDto;
@@ -28,9 +29,9 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDto> login(@RequestBody LoginRequestDto loginRequestDto){
-        String token = userService.login(loginRequestDto);
+        LoginResponseDto response = userService.login(loginRequestDto);
 
-        return ResponseEntity.ok(new LoginResponseDto(token));
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/test")
@@ -50,6 +51,35 @@ public class UserController {
             @Valid @RequestBody UserUpdateRequestDto updateRequestDto) {
         UserProfileResponseDto updatedProfile = userService.updateUserProfile(user, updateRequestDto);
         return ResponseEntity.ok(updatedProfile);
+    }
+
+    /**
+     * FCM 토큰 등록/업데이트
+     * 앱에서 생성된 FCM 토큰을 서버에 저장합니다.
+     *
+     * @param user 현재 로그인한 사용자
+     * @param request FCM 토큰 요청 DTO
+     * @return 성공 메시지
+     */
+    @PostMapping("/fcm-token")
+    public ResponseEntity<String> updateFcmToken(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody FcmTokenRequestDto request) {
+        userService.updateFcmToken(user, request.getFcmToken());
+        return ResponseEntity.ok("FCM 토큰이 등록되었습니다.");
+    }
+
+    /**
+     * FCM 토큰 삭제
+     * 로그아웃 시 FCM 토큰을 삭제합니다.
+     *
+     * @param user 현재 로그인한 사용자
+     * @return 성공 메시지
+     */
+    @DeleteMapping("/fcm-token")
+    public ResponseEntity<String> deleteFcmToken(@AuthenticationPrincipal User user) {
+        userService.deleteFcmToken(user);
+        return ResponseEntity.ok("FCM 토큰이 삭제되었습니다.");
     }
 
 }

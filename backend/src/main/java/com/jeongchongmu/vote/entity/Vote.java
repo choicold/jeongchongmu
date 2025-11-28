@@ -26,7 +26,7 @@ public class Vote extends BaseEntity {
     @Builder.Default
     private boolean isClosed = false; // 투표 마감 여부
 
-    @OneToMany(mappedBy = "vote", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "vote", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<VoteOption> options = new ArrayList<>();
 }

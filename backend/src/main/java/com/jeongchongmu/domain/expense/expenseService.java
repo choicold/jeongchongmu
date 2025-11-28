@@ -10,11 +10,16 @@ import com.jeongchongmu.domain.expense.JPA.ExpenseItem;
 import com.jeongchongmu.domain.expense.JPA.ExpenseParticipant;
 import com.jeongchongmu.domain.expense.JPA.Tag;
 import com.jeongchongmu.domain.expense.Repository.TagRepository;
+import com.jeongchongmu.settlement.entity.Settlement;
+import com.jeongchongmu.settlement.repository.SettlementRepository;
 import com.jeongchongmu.user.User;
 import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
 import com.jeongchongmu.user.UserRepository;
+import com.jeongchongmu.vote.entity.Vote;
+import com.jeongchongmu.vote.repository.VoteRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -36,13 +41,15 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class expenseService {
+public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final UserRepository userRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final GroupRepository groupRepository;
     private final TagRepository tagRepository;
+    private final SettlementRepository settlementRepository;
+    private final VoteRepository voteRepository;
 
     /** [저장]기능
      * 지출 + 지출item + 참여자를 모두 저장함
@@ -67,10 +74,12 @@ public class expenseService {
             }
         }
 
-        // 4. [검증] 총액 일치 여부 (Create는 모든 정보가 DTO에 있으므로 단순 비교)
-        long itemsSum = dto.items().stream().mapToLong(ExpenseItemDTO::price).sum();
-        if (itemsSum != dto.amount()) {
-            throw new IllegalArgumentException(String.format("총액(%d)과 아이템 합계(%d)가 다릅니다.", dto.amount(), itemsSum));
+        // 4. [검증] 총액 일치 여부 (세부 항목이 있을 때만 검증)
+        if (dto.items() != null && !dto.items().isEmpty()) {
+            long itemsSum = dto.items().stream().mapToLong(item -> item.price() * item.quantity()).sum();
+            if (itemsSum != dto.amount()) {
+                throw new IllegalArgumentException(String.format("총액(%d)과 아이템 합계(%d)가 다릅니다.", dto.amount(), itemsSum));
+            }
         }
 
         // 5. [태그 처리]
@@ -123,6 +132,12 @@ public class expenseService {
         // 2. [권한검증]
         checkUpdateAndDeletePermission(expense, currentUserId);
 
+        // 투표가 존재하는지 확인 (Optional 반환 가정)
+        voteRepository.findByExpense(expense).ifPresent(vote -> {
+            // 투표를 삭제하면 -> Cascade 설정에 의해 VoteOption, UserVote 등도 같이 삭제되어야 함
+            voteRepository.delete(vote);
+        });
+
         // 3. [삭제하기]
         expenseRepository.delete(expense);
     }
@@ -161,20 +176,41 @@ public class expenseService {
                     .build()));
         }
 
-        // 6. 참여자 리스트 수정 (Null 체크)
+        // 6. 참여자 리스트 수정
         if (dto.participantIds() != null) {
-            expense.getParticipants().clear();
             Group group = expense.getGroup();
 
-            dto.participantIds().forEach(id -> {
-                User user = userRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자 ID입니다. (ID: " + id + ")"));
-
-                if (!groupMemberRepository.existsByUserAndGroup(user, group)) {
-                    throw new IllegalArgumentException(String.format("'%s'님은 이 그룹의 멤버가 아닙니다.", user.getName()));
+            // 6-1. [검증] 요청된 모든 ID가 그룹 멤버인지 확인
+            for (Long id : dto.participantIds()) {
+                if (!groupMemberRepository.existsByUserAndGroup(userRepository.getReferenceById(id), group)) {
+                    throw new IllegalArgumentException("그룹 멤버가 아닌 사용자가 포함되어 있습니다. (ID: " + id + ")");
                 }
-                expense.addParticipant(new ExpenseParticipant(expense, user));
-            });
+            }
+
+            // 6-2. [삭제] "기존엔 있는데, 요청(DTO)엔 없는 사람" 찾아서 제거
+            // (Java 16 이상이면 .toList(), 그 이하면 .collect(Collectors.toList()) 사용)
+            List<ExpenseParticipant> toRemove = expense.getParticipants().stream()
+                    .filter(p -> !dto.participantIds().contains(p.getUser().getId()))
+                    .toList();
+
+            for (ExpenseParticipant p : toRemove) {
+                // Expense 엔티티의 removeParticipant 메서드 호출 (양방향 해제)
+                expense.removeParticipant(p);
+            }
+
+            // 6-3. [추가] "요청(DTO)엔 있는데, 기존엔 없는 사람" 찾아서 추가
+            // 현재 남아있는 사람들의 ID 목록
+            Set<Long> currentIds = expense.getParticipants().stream()
+                    .map(p -> p.getUser().getId())
+                    .collect(Collectors.toSet());
+
+            for (Long id : dto.participantIds()) {
+                if (!currentIds.contains(id)) {
+                    // 없는 사람만 새로 생성 (new) -> 충돌 방지 핵심!
+                    User user = userRepository.getReferenceById(id);
+                    expense.addParticipant(new ExpenseParticipant(expense, user));
+                }
+            }
         }
 
         // 7. 태그 수정 (Null 체크)
@@ -204,9 +240,20 @@ public class expenseService {
         //    (수정된 findByGroupWithPayer 메서드 사용)
         List<Expense> expenses = expenseRepository.findByGroupWithPayer(group);
 
-        // 4. Simple DTO 리스트로 변환하여 반환
+        // 4. Simple DTO 리스트로 변환하여 반환 (settlementId, voteId, isVoteClosed 포함)
         return expenses.stream()
-                .map(ExpenseSimpleDTO::fromEntity)
+                .map(expense -> {
+                    // 각 지출에 대한 정산 정보 조회 (있으면 settlementId, 없으면 null)
+                    Optional<Settlement> settlement = settlementRepository.findByExpenseId(expense.getId());
+                    Long settlementId = settlement.map(Settlement::getId).orElse(null);
+
+                    // 각 지출에 대한 투표 정보 조회 (있으면 voteId와 isClosed, 없으면 null)
+                    Optional<Vote> vote = voteRepository.findByExpense(expense);
+                    Long voteId = vote.map(Vote::getId).orElse(null);
+                    Boolean isVoteClosed = vote.map(Vote::isClosed).orElse(null);
+
+                    return ExpenseSimpleDTO.fromEntity(expense, settlementId, voteId, isVoteClosed);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -225,13 +272,18 @@ public class expenseService {
         // 2. [권한 검증] 현재 유저가 이 그룹의 멤버인지 확인
         checkReadPermission(expense.getGroup(), currentUser);
 
-        // 3. DTO의 정적 팩토리 메서드를 사용해 변환 후 반환
-        return ExpenseDetailDTO.fromEntity(expense);
+        // 3. 정산 정보 조회 (있으면 settlementId, 없으면 null)
+        Optional<Settlement> settlement = settlementRepository.findByExpenseId(expenseId);
+        Long settlementId = settlement.map(Settlement::getId).orElse(null);
+
+        // 4. DTO의 정적 팩토리 메서드를 사용해 변환 후 반환
+        return ExpenseDetailDTO.fromEntity(expense, settlementId);
     }
 
 
     /** [신규] 태그 처리 헬퍼 메서드
      * 태그 이름 목록을 받아, find/create 후 Set<Tag>로 반환
+     * Unique constraint 위반을 안전하게 처리
      */
     private Set<Tag> processTags(Group group, List<String> tagNames) {
         if (tagNames == null || tagNames.isEmpty()) {
@@ -240,16 +292,37 @@ public class expenseService {
 
         return tagNames.stream()
                 .map(String::trim) // 공백 제거
+                .filter(name -> !name.isEmpty()) // 빈 문자열 제거
                 .distinct() // 중복 제거
-                .map(tagName ->
-                        // 1. 그룹 내에서 태그를 검색
-                        tagRepository.findByGroupAndName(group, tagName)
-                                // 2. 없으면 새로 생성하여 저장
-                                .orElseGet(() -> tagRepository.save(
-                                        Tag.builder().group(group).name(tagName).build()
-                                ))
-                )
+                .map(tagName -> findOrCreateTag(group, tagName))
                 .collect(Collectors.toSet());
+    }
+
+    /**
+     * 태그를 찾거나 생성 (Unique constraint 위반 안전 처리)
+     */
+    private Tag findOrCreateTag(Group group, String tagName) {
+        // 1. 먼저 기존 태그 조회
+        Optional<Tag> existingTag = tagRepository.findByGroupAndName(group, tagName);
+        if (existingTag.isPresent()) {
+            return existingTag.get();
+        }
+
+        // 2. 없으면 새로 생성
+        try {
+            Tag newTag = Tag.builder()
+                    .group(group)
+                    .name(tagName)
+                    .build();
+            return tagRepository.save(newTag);
+        } catch (DataIntegrityViolationException e) {
+            // 3. 동시성으로 인한 중복 키 오류 시 다시 조회
+            // (다른 트랜잭션에서 같은 태그를 생성했거나 sequence 문제)
+            return tagRepository.findByGroupAndName(group, tagName)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "태그 생성 중 오류가 발생했습니다: " + tagName + ". " +
+                            "데이터베이스 sequence 동기화가 필요할 수 있습니다.", e));
+        }
     }
 
 

@@ -13,7 +13,8 @@ import lombok.*;
 public class ExpenseItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "expense_item_seq")
+    @SequenceGenerator(name = "expense_item_seq", sequenceName = "expense_items_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

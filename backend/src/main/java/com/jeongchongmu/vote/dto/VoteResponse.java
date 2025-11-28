@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 public class VoteResponse {
     private Long voteId;
     private Long expenseId;
+    private Long payerId; // 지출 등록자 ID (투표 생성자)
     private boolean isClosed;
     private List<VoteOptionDto> options;
 
@@ -27,6 +28,7 @@ public class VoteResponse {
         return VoteResponse.builder()
                 .voteId(vote.getId())
                 .expenseId(vote.getExpense().getId())
+                .payerId(vote.getExpense().getPayer().getId()) // 지출 등록자 ID 추가
                 .isClosed(vote.isClosed())
                 .options(vote.getOptions().stream().map(option -> {
                     List<Long> voterIds = allUserVotes.stream()

@@ -2,10 +2,14 @@ package com.jeongchongmu.settlement.controller;
 
 import com.jeongchongmu.settlement.dto.SettlementCreateRequest;
 import com.jeongchongmu.settlement.dto.SettlementResponse;
+import com.jeongchongmu.settlement.dto.SettlementSummaryResponse;
+import com.jeongchongmu.settlement.dto.TransferConfirmRequest;
 import com.jeongchongmu.settlement.service.SettlementService;
+import com.jeongchongmu.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -37,6 +41,27 @@ public class SettlementController {
         return ResponseEntity.ok(response);
     }
 
+    // [R] 지출 ID로 정산 조회
+    @GetMapping("/by-expense/{expenseId}")
+    public ResponseEntity<SettlementResponse> getSettlementByExpenseId(@PathVariable Long expenseId) {
+        SettlementResponse response = settlementService.getSettlementByExpenseId(expenseId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 사용자의 정산 현황 요약 조회 API
+     * [GET] /api/settlements/my-summary
+     *
+     * 현재 로그인한 사용자가 받아야 할 돈과 보내야 할 돈의 총계를 반환합니다.
+     */
+    @GetMapping("/my-summary")
+    public ResponseEntity<SettlementSummaryResponse> getMySettlementSummary(
+            @AuthenticationPrincipal User user
+    ) {
+        SettlementSummaryResponse response = settlementService.getMySettlementSummary(user.getId());
+        return ResponseEntity.ok(response);
+    }
+
     // [U] 정산 수정 (재정산)
     @PutMapping("/{settlementId}")
     public ResponseEntity<SettlementResponse> updateSettlement(
@@ -52,6 +77,26 @@ public class SettlementController {
     public ResponseEntity<Void> deleteSettlement(@PathVariable Long settlementId) {
         settlementService.deleteSettlement(settlementId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 송금 확인 API
+     * [POST] /api/settlements/{settlementId}/confirm-transfer
+     *
+     * 사용자가 송금 버튼을 누르면 호출되며,
+     * 모든 멤버가 송금 완료 시 정산 상태를 COMPLETED로 변경합니다.
+     */
+    @PostMapping("/{settlementId}/confirm-transfer")
+    public ResponseEntity<SettlementResponse> confirmTransfer(
+            @PathVariable Long settlementId,
+            @RequestBody TransferConfirmRequest request
+    ) {
+        SettlementResponse response = settlementService.confirmTransfer(
+                settlementId,
+                request.getDebtorId(),
+                request.getCreditorId()
+        );
+        return ResponseEntity.ok(response);
     }
 
 }

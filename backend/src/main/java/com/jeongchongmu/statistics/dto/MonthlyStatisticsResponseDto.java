@@ -15,7 +15,7 @@ public record MonthlyStatisticsResponseDto(
         Long totalSettlementCount,
         Long notCompletedSettlementCount,
 
-        List<TopExpenseDto> incompletedSettlements,
+        List<SettlementSummaryItemDto> incompletedSettlements,
 
         List<Long> yearlyStatistics
 

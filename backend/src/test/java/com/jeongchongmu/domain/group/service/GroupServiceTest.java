@@ -79,7 +79,7 @@ class GroupServiceTest {
         @DisplayName("Happy Path: 그룹 생성 성공")
         void createGroup_Success() {
             // given
-            GroupRequest request = new GroupRequest("제주도 여행", "2024년 가을 여행");
+            GroupRequest request = new GroupRequest("제주도 여행", "2024년 가을 여행", null);
 
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(groupRepository.existsByInviteCode(anyString())).thenReturn(false);
@@ -106,7 +106,7 @@ class GroupServiceTest {
         @DisplayName("Edge Case: description이 null일 때")
         void createGroup_WithNullDescription() {
             // given
-            GroupRequest request = new GroupRequest("제주도 여행", null);
+            GroupRequest request = new GroupRequest("제주도 여행", null, null);
 
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(groupRepository.existsByInviteCode(anyString())).thenReturn(false);
@@ -126,7 +126,7 @@ class GroupServiceTest {
         @DisplayName("Error Case: 존재하지 않는 사용자")
         void createGroup_UserNotFound() {
             // given
-            GroupRequest request = new GroupRequest("제주도 여행", "설명");
+            GroupRequest request = new GroupRequest("제주도 여행", "설명", null);
             when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
             // when & then
@@ -141,7 +141,7 @@ class GroupServiceTest {
         @DisplayName("Edge Case: 초대 코드 중복 시 재생성")
         void createGroup_DuplicateInviteCode() {
             // given
-            GroupRequest request = new GroupRequest("제주도 여행", "설명");
+            GroupRequest request = new GroupRequest("제주도 여행", "설명", null);
 
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             // 첫 번째는 중복, 두 번째는 중복 아님
@@ -258,7 +258,7 @@ class GroupServiceTest {
         @DisplayName("Happy Path: 그룹 수정 성공 (OWNER)")
         void updateGroup_Success() {
             // given
-            GroupRequest request = new GroupRequest("제주도 여행 (수정)", "수정된 설명");
+            GroupRequest request = new GroupRequest("제주도 여행 (수정)", "수정된 설명", null);
 
             when(groupRepository.findById(1L)).thenReturn(Optional.of(testGroup));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
@@ -271,7 +271,8 @@ class GroupServiceTest {
 
             // then
             assertThat(result).isNotNull();
-            verify(testGroup).updateInfo("제주도 여행 (수정)", "수정된 설명");
+            assertThat(testGroup.getName()).isEqualTo("제주도 여행 (수정)");
+            assertThat(testGroup.getDescription()).isEqualTo("수정된 설명");
         }
 
         @Test
@@ -285,7 +286,7 @@ class GroupServiceTest {
                     .role(Role.MEMBER)
                     .build();
 
-            GroupRequest request = new GroupRequest("수정", "시도");
+            GroupRequest request = new GroupRequest("수정", "시도", null);
 
             when(groupRepository.findById(1L)).thenReturn(Optional.of(testGroup));
             when(userRepository.findById(2L)).thenReturn(Optional.of(memberUser));
@@ -303,7 +304,7 @@ class GroupServiceTest {
         void updateGroup_NotMember() {
             // given
             User otherUser = User.builder().id(3L).name("이영희").build();
-            GroupRequest request = new GroupRequest("수정", "시도");
+            GroupRequest request = new GroupRequest("수정", "시도", null);
 
             when(groupRepository.findById(1L)).thenReturn(Optional.of(testGroup));
             when(userRepository.findById(3L)).thenReturn(Optional.of(otherUser));
@@ -383,7 +384,7 @@ class GroupServiceTest {
 
             // then
             assertThat(result).isNotNull();
-            verify(testGroup).regenerateInviteCode(anyString());
+            assertThat(testGroup.getInviteCode()).isNotEqualTo(oldCode);
         }
 
         @Test

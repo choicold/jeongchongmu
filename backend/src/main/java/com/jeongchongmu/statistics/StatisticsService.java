@@ -38,7 +38,7 @@ public class StatisticsService {
         SettlementSummaryDto settlementSummary = settlementRepository.findMonthlySettlementSummary(groupId, year, month);
 
         // 5. 미완료 정산 목록
-        List<TopExpenseDto> incompletedSettlements = settlementRepository.findIncompletedSettlements(groupId, year, month);
+        List<SettlementSummaryItemDto> incompletedSettlements = settlementRepository.findIncompletedSettlements(groupId, year, month);
 
         // 2. [연간 차트 로직] 1~12월 데이터 채우기
         List<MonthlyExpenseStatDto> yearlyRawData = expenseRepository.findYearlyStatistics(groupId, year);
@@ -69,9 +69,6 @@ public class StatisticsService {
                 .incompletedSettlements(incompletedSettlements != null ? incompletedSettlements : Collections.emptyList())
                 .yearlyStatistics(yearlyStatistics)
                 .build();
-
-
-
     }
 
 }

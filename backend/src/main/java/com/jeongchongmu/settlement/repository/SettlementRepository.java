@@ -2,6 +2,7 @@ package com.jeongchongmu.settlement.repository;
 
 import com.jeongchongmu.settlement.entity.Settlement;
 import com.jeongchongmu.statistics.dto.SettlementSummaryDto;
+import com.jeongchongmu.statistics.dto.SettlementSummaryItemDto;
 import com.jeongchongmu.statistics.dto.TopExpenseDto;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -39,16 +40,16 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
                                                       @Param("year") int year,
                                                       @Param("month") int month);
 
-    @Query("SELECT new com.jeongchongmu.statistics.dto.TopExpenseDto(" +
-            "s.expense.id, s.expense.title, s.expense.amount) " +
+    @Query("SELECT new com.jeongchongmu.statistics.dto.SettlementSummaryItemDto(" +
+            "s.id, s.expense.id, s.expense.title, s.expense.amount) " +
             "FROM Settlement s " +
             "WHERE s.expense.group.id = :groupId " +
             "AND YEAR(s.createdAt) = :year " +
             "AND MONTH(s.createdAt) = :month " +
             "AND s.status <> 'COMPLETED'")
-    List<TopExpenseDto> findIncompletedSettlements(@Param("groupId") Long groupId,
-                                                  @Param("year") int year,
-                                                  @Param("month") int month);
+    List<SettlementSummaryItemDto> findIncompletedSettlements(@Param("groupId") Long groupId,
+                                                               @Param("year") int year,
+                                                               @Param("month") int month);
 
 
 }
