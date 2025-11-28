@@ -21,7 +21,7 @@ public class Expense extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "expense_seq")
-    @SequenceGenerator(name = "expense_seq", sequenceName = "expenses_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "expense_seq", sequenceName = "expenses_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
