@@ -1,5 +1,7 @@
 package com.jeongchongmu.settlement.service;
 
+import com.jeongchongmu.domain.expense.dto.ExpenseSimpleDTO;
+import com.jeongchongmu.domain.group.repository.GroupRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,7 @@ public class SettlementService {
     private final VoteRepository voteRepository;
     private final UserVoteRepository userVoteRepository;
     private final NotificationService notificationService;
+    private final GroupRepository groupRepository;
 
     @Transactional
     public SettlementResponse createSettlement(SettlementCreateRequest request) {
@@ -393,5 +396,28 @@ public class SettlementService {
 
         settlementDetailRepository.saveAll(details);
         settlement.getDetails().addAll(details);
+    }
+
+    /**
+     * [NEW] 특정 그룹의 미정산 지출 내역 조회
+     * 정산(Settlement)이 아직 생성되지 않은 지출만 필터링해서 반환합니다.
+     */
+    public List<ExpenseSimpleDTO> getUnsettledExpenses(Long groupId) {
+
+        // 1. 그룹 엔티티 조회 (ExpenseRepository가 Group 객체를 요구함)
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("그룹을 찾을 수 없습니다."));
+
+        // 2. 해당 그룹의 모든 지출 조회 (Payer 정보 포함 Fetch Join)
+        List<Expense> allExpenses = expenseRepository.findByGroupWithPayer(group);
+
+        // 3. 해당 그룹에서 이미 정산된 지출 ID 목록 조회
+        List<Long> settledExpenseIds = settlementRepository.findSettledExpenseIdsByGroupId(groupId);
+
+        // 4. 필터링 (전체 지출 중 정산 ID 목록에 없는 것만 추출)
+        return allExpenses.stream()
+                .filter(expense -> !settledExpenseIds.contains(expense.getId())) // 정산 안 된 것만 통과
+                .map(ExpenseSimpleDTO::fromEntity) // Entity -> DTO 변환
+                .collect(Collectors.toList());
     }
 }

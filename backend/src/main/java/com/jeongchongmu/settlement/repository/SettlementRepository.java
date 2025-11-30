@@ -51,5 +51,10 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
                                                                @Param("year") int year,
                                                                @Param("month") int month);
 
+    // [NEW] 특정 그룹에서 이미 정산이 생성된 지출의 ID 목록 조회
+    // (이 리스트에 없는 지출이 바로 '미정산 지출'입니다)
+    @Query("SELECT s.expense.id FROM Settlement s WHERE s.expense.group.id = :groupId")
+    List<Long> findSettledExpenseIdsByGroupId(@Param("groupId") Long groupId);
+
 
 }

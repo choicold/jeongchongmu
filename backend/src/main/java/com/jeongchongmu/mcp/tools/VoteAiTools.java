@@ -3,7 +3,9 @@ package com.jeongchongmu.mcp.tools;
 import com.jeongchongmu.domain.expense.JPA.Expense;
 import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
 import com.jeongchongmu.domain.group.entity.Group;
+import com.jeongchongmu.domain.group.entity.GroupMember;
 import com.jeongchongmu.domain.group.repository.GroupMemberRepository;
+import com.jeongchongmu.settlement.repository.SettlementRepository;
 import com.jeongchongmu.user.User;
 import com.jeongchongmu.user.UserRepository;
 import com.jeongchongmu.vote.entity.UserVote;
@@ -20,6 +22,7 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,6 +38,8 @@ public class VoteAiTools {
     private final ExpenseRepository expenseRepository;
     private final UserRepository userRepository;
     private final GroupMemberRepository groupMemberRepository;
+
+    private final SettlementRepository settlementRepository;
 
     // =================================================================================
     // 1. 투표 생성
@@ -57,6 +62,13 @@ public class VoteAiTools {
                 return "❌ 해당 그룹의 멤버만 투표를 생성할 수 있습니다.";
             }
 
+            // [추가된 로직] 이미 정산(Settlement)이 진행 중인지 확인
+            // 정산이 존재한다면, 이미 N빵이나 다른 방식으로 확정된 것이므로 투표를 생성하면 안 됨.
+            if (settlementRepository.findByExpenseId(expenseId).isPresent()) {
+                return "❌ 이미 정산(청구서)이 생성된 지출입니다.\n" +
+                        "투표를 진행하려면 기존 정산을 먼저 삭제해주세요.";
+            }
+
             // 이미 투표가 있는지 확인 - 있으면 기존 투표 ID 반환
             var existingVote = voteRepository.findByExpense(expense);
             if (existingVote.isPresent()) {
@@ -70,7 +82,7 @@ public class VoteAiTools {
                         vote.isClosed() ? "마감됨" : "진행중");
             }
 
-            // 투표 생성
+            // 투표 생성 로직 (기존과 동일)
             Vote vote = Vote.builder()
                     .expense(expense)
                     .build();
@@ -328,6 +340,65 @@ public class VoteAiTools {
     }
 
     // =================================================================================
+    // 5. [NEW] 진행 중인 투표 목록 조회 (사용자가 '투표할래' 했을 때 보여줄 목록)
+    // =================================================================================
+    @Tool(description = "사용자가 속한 모든 그룹에서 현재 진행 중(마감되지 않은)인 투표 목록을 조회합니다. 사용자가 '투표할래', '투표 목록 보여줘'라고 말할 때 사용하세요.")
+    @Transactional(readOnly = true)
+    public String getOngoingVotes(ToolContext context) {
+        Long userId = getUserIdFromContext(context);
+
+        try {
+            User user = getUser(userId);
+
+            // 1. 내가 속한 그룹 찾기
+            List<GroupMember> myMemberships = groupMemberRepository.findByUser(user);
+            if (myMemberships.isEmpty()) {
+                return "가입된 그룹이 없어 투표를 조회할 수 없습니다.";
+            }
+
+            List<Long> myGroupIds = myMemberships.stream()
+                    .map(gm -> gm.getGroup().getId())
+                    .collect(Collectors.toList());
+
+            // 2. 진행 중인 투표 조회
+            List<Vote> ongoingVotes = voteRepository.findByExpense_Group_IdInAndIsClosedFalse(myGroupIds);
+
+            if (ongoingVotes.isEmpty()) {
+                return "현재 진행 중인 투표가 없습니다. 새로운 지출(ID)에 대해 투표를 생성해보세요!";
+            }
+
+            // 3. 결과 포맷팅
+            StringBuilder sb = new StringBuilder();
+            sb.append("🗳️ **현재 참여 가능한 투표 목록**\n\n");
+
+            for (Vote vote : ongoingVotes) {
+                Expense expense = vote.getExpense();
+                Group group = expense.getGroup();
+
+                // 내가 이미 참여했는지(하나라도 찍었는지) 체크
+                boolean iVoted = vote.getOptions().stream()
+                        .anyMatch(opt -> userVoteRepository.existsByUserAndVoteOption(user, opt));
+
+                String status = iVoted ? "✅참여완료 (수정가능)" : "🔥참여필요";
+                String dateStr = expense.getExpenseData().format(DateTimeFormatter.ofPattern("MM/dd"));
+
+                sb.append(String.format("📌 **지출 ID: %d** | %s\n", expense.getId(), status)); // 사용자가 지출ID로 접근하는게 편하므로 지출 ID 강조
+                sb.append(String.format("   - 항목: **%s** (%,d원)\n", expense.getTitle(), expense.getAmount()));
+                sb.append(String.format("   - 그룹: %s | 날짜: %s\n", group.getName(), dateStr));
+                sb.append(String.format("   - 투표 인원: %d명 참여중\n\n", countVoters(vote)));
+            }
+
+            sb.append("💡 투표에 참여하려면 **'지출 ID OOO번 상세 보여줘'** 또는 **'OOO(항목명) 투표할래'**라고 말씀해주세요.");
+
+            return sb.toString();
+
+        } catch (Exception e) {
+            log.error("투표 목록 조회 실패", e);
+            return "❌ 투표 목록 조회 실패: " + e.getMessage();
+        }
+    }
+
+    // =================================================================================
     // Helper Methods
     // =================================================================================
 
@@ -347,5 +418,13 @@ public class VoteAiTools {
     private Expense getExpense(Long expenseId) {
         return expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new IllegalArgumentException("지출 내역을 찾을 수 없습니다."));
+    }
+
+    private long countVoters(Vote vote) {
+        return userVoteRepository.findAll().stream()
+                .filter(uv -> uv.getVoteOption().getVote().getId().equals(vote.getId()))
+                .map(uv -> uv.getUser().getId())
+                .distinct()
+                .count();
     }
 }

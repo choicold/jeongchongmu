@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jeongchongmu.domain.expense.JPA.Expense;
 import com.jeongchongmu.domain.expense.Repository.ExpenseRepository;
+import com.jeongchongmu.domain.expense.dto.ExpenseSimpleDTO;
 import com.jeongchongmu.domain.group.entity.Group;
 import com.jeongchongmu.domain.group.repository.GroupMemberRepository;
 import com.jeongchongmu.settlement.dto.*;
@@ -23,6 +24,7 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -506,6 +508,58 @@ public class SettlementAiTools {
         } catch (Exception e) {
             log.error("정산 삭제 실패", e);
             return "❌ 삭제 실패: " + e.getMessage();
+        }
+    }
+
+    // =================================================================================
+    // 10. 미정산 지출 조회 Tool
+    // =================================================================================
+    @Tool(description = "특정 그룹에서 아직 정산(청구서)이 생성되지 않은 지출 내역을 조회합니다. '정산 안 한 거 있어?', '빠뜨린 정산 찾아줘' 등의 질문에 사용합니다.")
+    @Transactional(readOnly = true)
+    public String getUnsettledExpensesInGroup(
+            @ToolParam(description = "확인할 그룹 ID") Long groupId,
+            ToolContext context
+    ) {
+        Long userId = getUserIdFromContext(context);
+
+        try {
+            User user = getUser(userId);
+
+            // 1. 본인이 속한 그룹인지 확인 (보안)
+            if (!groupMemberRepository.existsByUserAndGroup(user,
+                    com.jeongchongmu.domain.group.entity.Group.builder().id(groupId).build())) {
+                return "❌ 해당 그룹의 멤버만 조회할 수 있습니다.";
+            }
+
+            // 2. 서비스 호출 (미정산 내역 조회)
+            List<ExpenseSimpleDTO> unsettledExpenses = settlementService.getUnsettledExpenses(groupId);
+
+            // 3. 결과 없음 처리
+            if (unsettledExpenses.isEmpty()) {
+                return "🎉 와우! 해당 그룹에는 정산되지 않은 지출이 없습니다. 모두 처리되었습니다.";
+            }
+
+            // 4. 결과 포맷팅
+            StringBuilder sb = new StringBuilder();
+            sb.append("🕵️ **정산이 필요한 지출 내역을 찾았습니다!**\n");
+            sb.append(String.format("총 %d건의 미정산 내역이 있습니다.\n\n", unsettledExpenses.size()));
+
+            for (ExpenseSimpleDTO ex : unsettledExpenses) {
+                // 날짜 포맷팅 (YYYY-MM-DD)
+                String dateStr = ex.expenseData().format(DateTimeFormatter.ofPattern("MM/dd"));
+
+                sb.append(String.format("📌 **ID: %d** | %s\n", ex.id(), ex.title()));
+                sb.append(String.format("   - 금액: %,d원 (결제자: %s)\n", ex.amount(), ex.payerName()));
+                sb.append(String.format("   - 날짜: %s\n\n", dateStr));
+            }
+
+            sb.append("💡 **'ID OOO번 N빵으로 정산해줘'** 또는 **'OOO번 투표 만들어줘'**라고 말씀하시면 바로 처리해드릴게요!");
+
+            return sb.toString();
+
+        } catch (Exception e) {
+            log.error("미정산 내역 조회 실패", e);
+            return "❌ 조회 실패: " + e.getMessage();
         }
     }
 

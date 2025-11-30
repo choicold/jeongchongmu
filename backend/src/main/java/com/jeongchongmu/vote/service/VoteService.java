@@ -8,6 +8,7 @@ import com.jeongchongmu.domain.group.entity.Group;
 import com.jeongchongmu.domain.group.repository.GroupMemberRepository;
 import com.jeongchongmu.domain.notification.entity.NotificationType;
 import com.jeongchongmu.domain.notification.service.NotificationService;
+import com.jeongchongmu.settlement.repository.SettlementRepository;
 import com.jeongchongmu.user.User;
 import com.jeongchongmu.user.UserRepository;
 import com.jeongchongmu.vote.dto.CastVoteRequest;
@@ -37,11 +38,17 @@ public class VoteService {
     private final UserRepository userRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final NotificationService notificationService;
+    private final SettlementRepository settlementRepository;
 
     // 1. 투표 생성 (수정됨)
     public Long createVote(Long expenseId) {
         Expense expense = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new IllegalArgumentException("지출 없음"));
+
+        // 정산이 존재하면 투표를 시작할 수 없음 (순서: 투표 -> 정산)
+        if (settlementRepository.findByExpenseId(expenseId).isPresent()) {
+            throw new IllegalStateException("이미 정산(청구서)이 생성된 지출입니다. 투표를 하려면 기존 정산을 삭제해주세요.");
+        }
 
         // 변경: 있으면 해당 Vote의 ID를 바로 반환 (프론트엔드는 성공한 것으로 간주하고 이동 가능)
         var existingVote = voteRepository.findByExpense(expense);
