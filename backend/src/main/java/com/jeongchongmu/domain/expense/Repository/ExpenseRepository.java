@@ -84,4 +84,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "GROUP BY MONTH(e.expenseData)")
     List<MonthlyExpenseStatDto> findYearlyStatistics(@Param("groupId") Long groupId,
                                                      @Param("year") int year);
+
+    //이미 등록된 영수증인지 아닌지.
+    boolean existsByReceiptUrl(String receiptUrl);
 }
