@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx expo install:*)",
+      "Bash(npx expo start --clear)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(./gradlew build:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
