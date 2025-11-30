@@ -25,15 +25,7 @@ import lombok.*;
 @Builder
 public class GroupMember extends BaseEntity {
     @Id
-    @GeneratedValue(
-            strategy=GenerationType.SEQUENCE,
-            generator="group_member_seq_generator"
-    )
-    @SequenceGenerator(
-            name="group_member_seq_generator",
-            sequenceName="group_members_id_seq",
-            allocationSize=20
-    )
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch=FetchType.LAZY)

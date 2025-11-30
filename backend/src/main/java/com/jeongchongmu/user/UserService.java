@@ -30,7 +30,7 @@ public class UserService {
 
         User user = User.builder()
                         .email(signUpRequestDto.getEmail())
-                        .fcmToken("ex-token")
+                        .fcmToken(null)  // 회원가입 시 fcmToken은 null로 설정
                         .bankName(signUpRequestDto.getBankName())
                         .accountNumber(signUpRequestDto.getAccountNumber())
                         .password(encodedPassword)
@@ -97,5 +97,22 @@ public class UserService {
 
         foundUser.updateFcmToken(null);
         userRepository.save(foundUser);
+    }
+
+    /**
+     * 로그아웃
+     * FCM 토큰을 삭제하고 로그아웃을 처리합니다.
+     * JWT는 stateless이므로 서버에서 토큰을 무효화할 수 없습니다.
+     * 클라이언트에서 토큰을 삭제해야 합니다.
+     *
+     * @param user 로그인한 사용자
+     */
+    @Transactional
+    public void logout(User user) {
+        // FCM 토큰 삭제
+        deleteFcmToken(user);
+
+        // JWT는 stateless이므로 서버에서 별도로 할 작업이 없습니다.
+        // 필요 시 여기에 로그아웃 로그 기록 등을 추가할 수 있습니다.
     }
 }

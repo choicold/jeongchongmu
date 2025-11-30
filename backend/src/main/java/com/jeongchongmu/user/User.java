@@ -39,7 +39,7 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String fcmToken; // 로그인 시 발급 받아야 하는 푸시 토큰
 
 

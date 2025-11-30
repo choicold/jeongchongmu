@@ -20,8 +20,7 @@ import java.util.Set;
 public class Expense extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "expense_seq")
-    @SequenceGenerator(name = "expense_seq", sequenceName = "expenses_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

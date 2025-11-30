@@ -19,15 +19,7 @@ import java.util.List;
 @Builder
 public class Group extends BaseEntity {
     @Id
-    @GeneratedValue(
-            strategy= GenerationType.SEQUENCE,
-            generator = "group_seq_generator"
-    )
-    @SequenceGenerator(
-            name = "group_seq_generator",
-            sequenceName = "groups_id_seq",
-            allocationSize = 10
-    )
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable=false, length=50)

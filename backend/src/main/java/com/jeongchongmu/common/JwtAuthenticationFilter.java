@@ -39,9 +39,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-
             String email = jwtUtil.getEmailFromBearerToken(bearerToken);
-            User user = userRepository.findByEmail(email).get();
+
+            // 이메일로 사용자 조회 (Optional 처리)
+            User user = userRepository.findByEmail(email).orElse(null);
+
+            // 사용자가 존재하지 않으면 401 에러 반환
+            if (user == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("text/plain;charset=UTF-8");
+                response.getWriter().write("사용자를 찾을 수 없습니다. 다시 로그인해주세요.");
+                return;
+            }
 
             Authentication authentication = new UsernamePasswordAuthenticationToken(
                     user,

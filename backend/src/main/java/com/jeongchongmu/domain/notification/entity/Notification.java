@@ -13,15 +13,7 @@ import lombok.*;
 @Builder
 public class Notification extends BaseEntity {
     @Id
-    @GeneratedValue(
-            strategy= GenerationType.SEQUENCE,
-            generator = "notification_seq_generator"
-    )
-    @SequenceGenerator(
-            name = "notification_seq_generator",
-            sequenceName = "notifications_id_seq",
-            allocationSize = 50
-    )
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

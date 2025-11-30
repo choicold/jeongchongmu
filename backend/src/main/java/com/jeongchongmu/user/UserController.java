@@ -82,4 +82,18 @@ public class UserController {
         return ResponseEntity.ok("FCM 토큰이 삭제되었습니다.");
     }
 
+    /**
+     * 로그아웃
+     * FCM 토큰을 삭제하고 로그아웃을 처리합니다.
+     * 클라이언트는 로컬 토큰을 삭제해야 합니다.
+     *
+     * @param user 현재 로그인한 사용자
+     * @return 성공 메시지
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@AuthenticationPrincipal User user) {
+        userService.logout(user);
+        return ResponseEntity.ok("로그아웃되었습니다.");
+    }
+
 }
