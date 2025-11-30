@@ -33,7 +33,7 @@ export default {
           {
             icon: "./assets/icon.png",
             color: "#ffffff",
-            sounds: ["./assets/notification-sound.wav"],
+            sounds: [],
             mode: "production"
           }
         ]
