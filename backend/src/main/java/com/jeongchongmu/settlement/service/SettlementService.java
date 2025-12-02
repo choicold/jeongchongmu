@@ -364,7 +364,7 @@ public class SettlementService {
             }
 
             // 2. 이 메뉴의 가격을 먹은 사람 수로 나눕니다.
-            long price = option.getExpenseItem().getPrice().longValue(); // BigDecimal -> Long
+            long price = option.getExpenseItem().getPrice().longValue() * option.getExpenseItem().getQuantity();
             long splitPrice = price / votes.size();
 
             // 3. 먹은 사람들에게 청구

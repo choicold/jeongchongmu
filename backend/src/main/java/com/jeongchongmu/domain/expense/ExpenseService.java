@@ -381,24 +381,19 @@ public class ExpenseService {
      * 총액 == 아이템합계 인지 검사
      */
     private void validateConsistency(Expense expense, ExpenseUpdateDTO dto) {
-        // 1. 최종 총액 결정 (수정 요청이 있으면 수정값, 없으면 기존값)
         long finalAmount = (dto.amount() != null) ? dto.amount() : expense.getAmount();
 
-        // 2. 최종 아이템 합계 결정
         long finalItemsSum;
         if (dto.items() != null) {
-            // 아이템이 수정된다면, 수정될 아이템들의 합계 계산
             finalItemsSum = dto.items().stream()
-                    .mapToLong(ExpenseItemDTO::price)
+                    .mapToLong(item -> item.price() * item.quantity())
                     .sum();
         } else {
-            // 아이템이 수정되지 않는다면, 기존 아이템들의 합계 계산
             finalItemsSum = expense.getItems().stream()
-                    .mapToLong(ExpenseItem::getPrice)
+                    .mapToLong(item -> item.getPrice() * item.getQuantity())
                     .sum();
         }
 
-        // 3. 비교
         if (finalAmount != finalItemsSum) {
             throw new IllegalArgumentException(
                     String.format("지출 총액(%d)과 세부 항목의 합계(%d)가 일치하지 않습니다.", finalAmount, finalItemsSum)

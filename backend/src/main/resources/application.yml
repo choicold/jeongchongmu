@@ -32,10 +32,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false #원랜 ture
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false #원랜 ture
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   flyway:
@@ -48,6 +48,8 @@ logging:
   level:
     com.jeongchongmu: DEBUG
     org.springframework.web: DEBUG
+    org.hibernate.SQL: OFF       # 👈 추가: SQL 로그 끔
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF # 👈 추가: 바인딩 변수 로그 끔
 
 ---
 # Supabase 공유 DB

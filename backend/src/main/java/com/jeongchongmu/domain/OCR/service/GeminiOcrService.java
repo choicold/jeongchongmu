@@ -34,7 +34,7 @@ public class GeminiOcrService implements OcrService {
         // 2. 이미지 바이트 준비
         byte[] imageBytes = imageFile.getBytes();
 
-        // 3. [전략 변경] 프롬프트에 JSON 구조를 텍스트로 명확히 박아넣기
+        // 3. [전략 변경] 프롬프트 수정: price를 개별 단가(Unit Price)로 추출하도록 변경
         String promptText = """
             You are a strict OCR assistant. Analyze this receipt image and extract data into the following JSON format.
             
@@ -42,9 +42,9 @@ public class GeminiOcrService implements OcrService {
             1. Output MUST be raw JSON only. No Markdown formatting (no ```json).
             2. If a field is missing, use null or appropriate default.
             3. Date format must be ISO-8601 (YYYY-MM-DDTHH:mm:ss).
-            4. [IMPORTANT] For the 'items' list, the 'price' field MUST be the 'Total Amount' (Unit Price * Quantity). 
-               Do NOT extract the 'Unit Price' (단가). Extract the 'Amount' (금액) column.
-               (e.g., If Unit Price is 1,300 and Qty is 2, 'price' must be 2,600).
+            4. [IMPORTANT] For the 'items' list, the 'price' field MUST be the 'Unit Price' (Individual Item Price). 
+               Extract the 'Unit Price' (단가) column. Do NOT extract the 'Amount' (금액/Total Line Amount).
+               (e.g., If Unit Price is 1,300 and Qty is 2, 'price' must be 1,300).
             
             Required JSON Structure:
             {
@@ -54,7 +54,7 @@ public class GeminiOcrService implements OcrService {
               "items": [
                 {
                   "name": "Item Name",
-                  "price": 2600 (Integer, Total line amount = Unit Price * Quantity),
+                  "price": 1300 (Integer, Unit Price per item),
                   "quantity": 2 (Integer)
                 }
               ]
@@ -62,19 +62,18 @@ public class GeminiOcrService implements OcrService {
             """;
 
         // 4. 요청 데이터 구성
-        // Schema 설정(GenerateContentConfig) 제거하고 기본 요청으로 보냄
         Content content = Content.builder()
                 .parts(List.of(
                         Part.builder().text(promptText).build(),
                         Part.builder().inlineData(Blob.builder()
                                 .mimeType(imageFile.getContentType())
-                                .data(imageBytes) // byte[] 직접 주입
+                                .data(imageBytes)
                                 .build()).build()
                 ))
                 .build();
 
         try {
-            // 5. API 호출 (Config 없이 호출)
+            // 5. API 호출
             GenerateContentResponse response = client.models.generateContent(MODEL_NAME, content, null);
 
             String responseText = response.text();
@@ -84,18 +83,17 @@ public class GeminiOcrService implements OcrService {
                 throw new IOException("Gemini API로부터 응답을 받지 못했습니다.");
             }
 
-            // 6. 혹시 모를 마크다운 백틱 제거 (Gemini가 말을 안 듣고 넣어줄 때를 대비)
+            // 6. 마크다운 백틱 제거
             String cleanJson = responseText
                     .replace("```json", "")
                     .replace("```", "")
                     .trim();
 
-            // 7. Jackson으로 파싱 (이제 DTO와 JSON 필드명이 일치하므로 자동 변환됨)
+            // 7. Jackson으로 파싱
             return objectMapper.readValue(cleanJson, OcrResultDTO.class);
 
         } catch (Exception e) {
             log.error("Gemini OCR Parsing Failed", e);
-            // 파싱 실패 시 로그에 원본 응답을 남겨둬야 디버깅이 편함
             throw new IOException("Failed to process receipt image. Check logs for details.");
         }
     }

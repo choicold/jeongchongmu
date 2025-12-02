@@ -32,9 +32,14 @@ public class GroupAiTools {
             List<GroupDto> groups = groupService.getMyGroups(userId);
             if (groups.isEmpty()) return "가입된 그룹이 없습니다.";
 
-            return groups.stream()
-                    .map(g -> String.format("ID:%d | 이름:%s | 초대코드:%s", g.id(), g.name(), g.inviteCode()))
-                    .collect(Collectors.joining("\n"));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < groups.size(); i++) {
+                GroupDto g = groups.get(i);
+                // AI가 "1번"을 "ID 2"로 매핑하기 쉽도록 순번(i+1)을 앞에 붙여줍니다.
+                sb.append(String.format("%d. [ID:%d] %s (초대코드:%s)\n",
+                        i + 1, g.id(), g.name(), g.inviteCode()));
+            }
+            return sb.toString();
         } catch (Exception e) {
             return "그룹 목록 조회 실패: " + e.getMessage();
         }
