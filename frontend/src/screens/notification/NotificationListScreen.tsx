@@ -110,11 +110,8 @@ export const NotificationListScreen: React.FC = () => {
           // 정산 상세 화면으로 이동 (MainTab의 SettlementDetail)
           // relatedId는 settlementId
           navigation.navigate('MainTab', {
-            screen: 'Main',
-            params: {
-              screen: 'SettlementDetail',
-              params: { settlementId: relatedId },
-            },
+            screen: 'SettlementDetail',
+            params: { settlementId: relatedId },
           });
           break;
 
@@ -123,11 +120,8 @@ export const NotificationListScreen: React.FC = () => {
           // 투표 화면으로 이동 (MainTab의 Vote)
           // relatedId는 expenseId
           navigation.navigate('MainTab', {
-            screen: 'Main',
-            params: {
-              screen: 'Vote',
-              params: { expenseId: relatedId },
-            },
+            screen: 'Vote',
+            params: { expenseId: relatedId },
           });
           break;
 
@@ -135,11 +129,8 @@ export const NotificationListScreen: React.FC = () => {
           // 지출 상세 화면으로 이동 (MainTab의 ExpenseDetail)
           // relatedId는 expenseId
           navigation.navigate('MainTab', {
-            screen: 'Main',
-            params: {
-              screen: 'ExpenseDetail',
-              params: { expenseId: relatedId },
-            },
+            screen: 'ExpenseDetail',
+            params: { expenseId: relatedId },
           });
           break;
 
@@ -147,11 +138,8 @@ export const NotificationListScreen: React.FC = () => {
           // 그룹 상세 화면으로 이동 (MainTab의 GroupDetail)
           // relatedId는 groupId
           navigation.navigate('MainTab', {
-            screen: 'Main',
-            params: {
-              screen: 'GroupDetail',
-              params: { groupId: relatedId },
-            },
+            screen: 'GroupDetail',
+            params: { groupId: relatedId },
           });
           break;
 
