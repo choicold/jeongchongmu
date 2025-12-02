@@ -7,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   SafeAreaView,
-  Alert,
   Platform,
   Animated,
 } from 'react-native';
@@ -25,6 +24,7 @@ import { ExpenseDetailDTO } from '../../types/expense.types';
 import { formatDate, formatDateTime } from '../../utils/dateFormatter';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { COLORS } from '../../constants/colors';
 import { ROUTES } from '../../constants/routes';
 import { getCategoryEmoji } from '../../utils/categoryIcons';
@@ -41,6 +41,7 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { expenseId } = route.params;
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { showAlert } = useCustomAlert();
 
   // State
   const [expense, setExpense] = useState<ExpenseDetailDTO | null>(null);
@@ -77,6 +78,16 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       setLoading(true);
       // API를 직접 호출하여 expense 데이터 가져오기
       const expenseData = await expenseApi.getExpenseDetail(expenseId);
+
+      // 접근 권한 확인: 현재 사용자가 지출 참여자인지 확인
+      if (user && expenseData.participants && expenseData.participants.length > 0) {
+        const isParticipant = expenseData.participants.includes(user.name);
+        if (!isParticipant) {
+          setError('이 지출의 참여자만 조회할 수 있습니다.');
+          return;
+        }
+      }
+
       setExpense(expenseData);
 
       // 투표 존재 여부 확인
@@ -129,10 +140,10 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
    * 지출 삭제
    */
   const handleDeleteExpense = () => {
-    Alert.alert(
-      '지출 삭제',
-      '정말로 이 지출을 삭제하시겠습니까?',
-      [
+    showAlert({
+      title: '지출 삭제',
+      message: '정말로 이 지출을 삭제하시겠습니까?',
+      buttons: [
         {
           text: '취소',
           style: 'cancel',
@@ -153,8 +164,8 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   /**

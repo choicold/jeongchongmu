@@ -6,12 +6,12 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { ProfileStackParamList } from '../../navigation/MainNavigator';
 import { useAuth } from '../../context/AuthContext';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { COLORS } from '../../constants/colors';
@@ -25,15 +25,16 @@ type Props = NativeStackScreenProps<ProfileStackParamList, 'Profile'>;
  */
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const { showAlert } = useCustomAlert();
 
   /**
    * 로그아웃 처리
    */
   const handleLogout = () => {
-    Alert.alert(
-      '로그아웃',
-      '정말 로그아웃 하시겠습니까?',
-      [
+    showAlert({
+      title: '로그아웃',
+      message: '정말 로그아웃 하시겠습니까?',
+      buttons: [
         {
           text: '취소',
           style: 'cancel',
@@ -46,12 +47,15 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               await logout();
             } catch (error) {
               console.error('로그아웃 실패:', error);
-              Alert.alert('오류', '로그아웃에 실패했습니다.');
+              showAlert({
+                title: '오류',
+                message: '로그아웃에 실패했습니다.',
+              });
             }
           },
         },
       ],
-    );
+    });
   };
 
   return (

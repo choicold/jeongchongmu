@@ -9,7 +9,6 @@ import {
   SafeAreaView,
   ActionSheetIOS,
   Platform,
-  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +17,7 @@ import { ExpenseCard } from '../../components/expense/ExpenseCard';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorMessage } from '../../components/common/ErrorMessage';
 import * as expenseApi from '../../services/api/expenseApi';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { ExpenseSimpleDTO } from '../../types/expense.types';
 import { COLORS } from '../../constants/colors';
 import { ROUTES } from '../../constants/routes';
@@ -32,6 +32,7 @@ type Props = NativeStackScreenProps<GroupsStackParamList, 'ExpenseList'>;
  */
 export const ExpenseListScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
+  const { showAlert } = useCustomAlert();
 
   // State
   const [expenses, setExpenses] = useState<ExpenseSimpleDTO[]>([]);
@@ -98,11 +99,11 @@ export const ExpenseListScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       );
     } else {
-      // Android - Alert 사용
-      Alert.alert(
-        '지출 등록',
-        '지출을 어떻게 등록하시겠어요?',
-        [
+      // Android - showAlert 사용
+      showAlert({
+        title: '지출 등록',
+        message: '지출을 어떻게 등록하시겠어요?',
+        buttons: [
           {
             text: '수동 입력',
             onPress: goToCreateExpense,
@@ -115,8 +116,8 @@ export const ExpenseListScreen: React.FC<Props> = ({ navigation, route }) => {
             text: '취소',
             style: 'cancel',
           },
-        ]
-      );
+        ],
+      });
     }
   };
 

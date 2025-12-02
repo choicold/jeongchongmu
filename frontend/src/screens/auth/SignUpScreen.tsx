@@ -8,7 +8,6 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
-  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,6 +24,7 @@ import {
   validateBankName,
 } from '../../utils/validation';
 import { COLORS } from '../../constants/colors';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'SignUp'>;
 
@@ -35,6 +35,8 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'SignUp'>;
  * 이메일, 비밀번호, 이름, 은행명, 계좌번호를 입력받아 회원가입을 진행합니다.
  */
 export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
+  const { showAlert } = useCustomAlert();
+
   // State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -151,16 +153,16 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       // 회원가입 성공
-      Alert.alert(
-        '회원가입 완료',
-        message || '회원가입이 완료되었습니다. 로그인해주세요.',
-        [
+      showAlert({
+        title: '회원가입 완료',
+        message: message || '회원가입이 완료되었습니다. 로그인해주세요.',
+        buttons: [
           {
             text: '확인',
             onPress: () => navigation.goBack(), // 로그인 화면으로 돌아가기
           },
-        ]
-      );
+        ],
+      });
     } catch (err: any) {
       console.error('회원가입 에러:', err);
       setError(err.message || '회원가입에 실패했습니다.');

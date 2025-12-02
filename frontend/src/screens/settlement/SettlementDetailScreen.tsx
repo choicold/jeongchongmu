@@ -105,6 +105,18 @@ export const SettlementDetailScreen: React.FC<Props> = ({
       setError('');
       setLoading(true);
       const data = await settlementApi.getSettlement(settlementId);
+
+      // 접근 권한 확인: 현재 사용자가 정산 참여자인지 확인
+      if (user && data.details && data.details.length > 0) {
+        const isParticipant = data.details.some(
+          detail => detail.debtorName === user.name || detail.creditorName === user.name
+        );
+        if (!isParticipant) {
+          setError('이 정산의 참여자만 조회할 수 있습니다.');
+          return;
+        }
+      }
+
       setSettlementData(data);
     } catch (err: any) {
       console.error('정산 정보 조회 에러:', err);

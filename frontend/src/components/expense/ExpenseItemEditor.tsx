@@ -5,12 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ExpenseItemDTO } from '../../types/expense.types';
 import { COLORS } from '../../constants/colors';
 import { Card } from '../common/Card';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 
 /**
  * ExpenseItemEditor Props 타입 정의
@@ -33,6 +33,7 @@ export const ExpenseItemEditor: React.FC<ExpenseItemEditorProps> = ({
   onItemsChange,
   showTotal = true,
 }) => {
+  const { showAlert } = useCustomAlert();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<ExpenseItemDTO | null>(null);
   const [newItem, setNewItem] = useState<ExpenseItemDTO>({
@@ -54,11 +55,17 @@ export const ExpenseItemEditor: React.FC<ExpenseItemEditorProps> = ({
    */
   const handleAddItem = () => {
     if (!newItem.name.trim()) {
-      Alert.alert('알림', '항목 이름을 입력해주세요.');
+      showAlert({
+        title: '알림',
+        message: '항목 이름을 입력해주세요.',
+      });
       return;
     }
     if (newItem.price <= 0) {
-      Alert.alert('알림', '올바른 가격을 입력해주세요.');
+      showAlert({
+        title: '알림',
+        message: '올바른 가격을 입력해주세요.',
+      });
       return;
     }
 
@@ -93,15 +100,24 @@ export const ExpenseItemEditor: React.FC<ExpenseItemEditorProps> = ({
     if (editingIndex === null || !editingItem) return;
 
     if (!editingItem.name.trim()) {
-      Alert.alert('알림', '항목 이름을 입력해주세요.');
+      showAlert({
+        title: '알림',
+        message: '항목 이름을 입력해주세요.',
+      });
       return;
     }
     if (editingItem.price <= 0) {
-      Alert.alert('알림', '올바른 가격을 입력해주세요.');
+      showAlert({
+        title: '알림',
+        message: '올바른 가격을 입력해주세요.',
+      });
       return;
     }
     if (editingItem.quantity <= 0) {
-      Alert.alert('알림', '올바른 수량을 입력해주세요.');
+      showAlert({
+        title: '알림',
+        message: '올바른 수량을 입력해주세요.',
+      });
       return;
     }
 
@@ -116,17 +132,21 @@ export const ExpenseItemEditor: React.FC<ExpenseItemEditorProps> = ({
    * 항목 삭제
    */
   const handleDeleteItem = (index: number) => {
-    Alert.alert('삭제 확인', '이 항목을 삭제하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: () => {
-          const newItems = items.filter((_, i) => i !== index);
-          onItemsChange(newItems);
+    showAlert({
+      title: '삭제 확인',
+      message: '이 항목을 삭제하시겠습니까?',
+      buttons: [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: () => {
+            const newItems = items.filter((_, i) => i !== index);
+            onItemsChange(newItems);
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   /**

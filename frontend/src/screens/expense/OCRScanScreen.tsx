@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  Alert,
   SafeAreaView,
   TouchableOpacity,
   Linking,
@@ -20,6 +19,7 @@ import { Button } from '../../components/common/Button';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ExpenseItemList } from '../../components/expense/ExpenseItemList';
 import * as OCRService from '../../services/OCRService';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { OcrResultDTO } from '../../types/ocr.types';
 import { COLORS } from '../../constants/colors';
 import { ROUTES } from '../../constants/routes';
@@ -33,6 +33,7 @@ type Props = NativeStackScreenProps<GroupsStackParamList, 'OCRScan'>;
  */
 export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId } = route.params;
+  const { showAlert } = useCustomAlert();
 
   // State
   const [image, setImage] = useState<string | null>(null);
@@ -56,10 +57,10 @@ export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
       setHasPermission(status === 'granted');
 
       if (status !== 'granted') {
-        Alert.alert(
-          '권한 필요',
-          '영수증 촬영을 위해 카메라 권한이 필요합니다.',
-          [
+        showAlert({
+          title: '권한 필요',
+          message: '영수증 촬영을 위해 카메라 권한이 필요합니다.',
+          buttons: [
             { text: '취소', style: 'cancel' },
             {
               text: '설정으로 이동',
@@ -71,8 +72,8 @@ export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
                 }
               },
             },
-          ]
-        );
+          ],
+        });
       }
     } catch (error) {
       console.error('권한 요청 에러:', error);
@@ -85,7 +86,10 @@ export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
    */
   const handleTakePhoto = async () => {
     if (!hasPermission) {
-      Alert.alert('권한 없음', '카메라 권한이 필요합니다.');
+      showAlert({
+        title: '권한 없음',
+        message: '카메라 권한이 필요합니다.',
+      });
       return;
     }
 
@@ -104,7 +108,10 @@ export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
       }
     } catch (error: any) {
       console.error('사진 촬영 에러:', error);
-      Alert.alert('촬영 실패', '사진 촬영에 실패했습니다.');
+      showAlert({
+        title: '촬영 실패',
+        message: '사진 촬영에 실패했습니다.',
+      });
     }
   };
 
@@ -127,7 +134,10 @@ export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
       }
     } catch (error: any) {
       console.error('이미지 선택 에러:', error);
-      Alert.alert('선택 실패', '이미지 선택에 실패했습니다.');
+      showAlert({
+        title: '선택 실패',
+        message: '이미지 선택에 실패했습니다.',
+      });
     }
   };
 
@@ -136,13 +146,19 @@ export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
    */
   const handleAnalyzeImage = async () => {
     if (!image) {
-      Alert.alert('이미지 없음', '먼저 영수증 사진을 촬영해주세요.');
+      showAlert({
+        title: '이미지 없음',
+        message: '먼저 영수증 사진을 촬영해주세요.',
+      });
       return;
     }
 
     // 이미지 URI 검증
     if (!OCRService.validateImageUri(image)) {
-      Alert.alert('오류', '올바르지 않은 이미지입니다.');
+      showAlert({
+        title: '오류',
+        message: '올바르지 않은 이미지입니다.',
+      });
       return;
     }
 
@@ -156,18 +172,18 @@ export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
       // 결과 검증
       const validation = OCRService.validateOcrResult(result);
       if (!validation.isValid) {
-        Alert.alert(
-          'OCR 결과 확인 필요',
-          `다음 항목을 확인해주세요:\n\n${validation.errors.join('\n')}`,
-          [{ text: '확인' }]
-        );
+        showAlert({
+          title: 'OCR 결과 확인 필요',
+          message: `다음 항목을 확인해주세요:\n\n${validation.errors.join('\n')}`,
+          buttons: [{ text: '확인' }],
+        });
       }
     } catch (error: any) {
       console.error('OCR 분석 에러:', error);
-      Alert.alert(
-        'OCR 분석 실패',
-        error.message || 'OCR 분석에 실패했습니다. 다시 시도해주세요.'
-      );
+      showAlert({
+        title: 'OCR 분석 실패',
+        message: error.message || 'OCR 분석에 실패했습니다. 다시 시도해주세요.',
+      });
     } finally {
       setLoading(false);
     }
@@ -178,7 +194,10 @@ export const OCRScanScreen: React.FC<Props> = ({ navigation, route }) => {
    */
   const handleRegisterExpense = () => {
     if (!ocrResult) {
-      Alert.alert('OCR 결과 없음', '먼저 영수증을 분석해주세요.');
+      showAlert({
+        title: 'OCR 결과 없음',
+        message: '먼저 영수증을 분석해주세요.',
+      });
       return;
     }
 

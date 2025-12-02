@@ -1,4 +1,5 @@
-import { Linking, Alert, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
+import { showGlobalAlert } from '../contexts/CustomAlertContext';
 
 /**
  * DeepLinkService - 외부 앱 연동 딥링크 서비스
@@ -114,24 +115,25 @@ export const openTossTransfer = async (
     } catch (openError) {
       // 토스 앱이 설치되지 않은 경우
       console.log('토스 앱을 열 수 없습니다:', openError);
-      Alert.alert(
-        '토스 앱 필요',
-        '토스 앱이 설치되어 있지 않습니다. 앱 스토어에서 설치하시겠습니까?',
-        [
+      showGlobalAlert({
+        title: '토스 앱 필요',
+        message: '토스 앱이 설치되어 있지 않습니다. 앱 스토어에서 설치하시겠습니까?',
+        buttons: [
           { text: '취소', style: 'cancel' },
           {
             text: '설치하기',
             onPress: () => openTossAppStore(),
           },
-        ]
-      );
+        ],
+      });
     }
   } catch (error: any) {
     console.error('토스 송금 실행 에러:', error);
-    Alert.alert(
-      '실행 실패',
-      '토스 송금을 실행할 수 없습니다. 나중에 다시 시도해주세요.'
-    );
+    showGlobalAlert({
+      title: '실행 실패',
+      message: '토스 송금을 실행할 수 없습니다. 나중에 다시 시도해주세요.',
+      type: 'error',
+    });
   }
 };
 
@@ -149,11 +151,19 @@ export const openTossAppStore = async (): Promise<void> => {
     if (canOpen) {
       await Linking.openURL(appStoreUrl);
     } else {
-      Alert.alert('오류', '앱 스토어를 열 수 없습니다.');
+      showGlobalAlert({
+        title: '오류',
+        message: '앱 스토어를 열 수 없습니다.',
+        type: 'error',
+      });
     }
   } catch (error) {
     console.error('앱 스토어 열기 에러:', error);
-    Alert.alert('오류', '앱 스토어를 열 수 없습니다.');
+    showGlobalAlert({
+      title: '오류',
+      message: '앱 스토어를 열 수 없습니다.',
+      type: 'error',
+    });
   }
 };
 
@@ -176,14 +186,19 @@ export const openKakaopayTransfer = async (
     if (canOpen) {
       await Linking.openURL(kakaopayUrl);
     } else {
-      Alert.alert(
-        '카카오페이 앱 필요',
-        '카카오페이 앱이 설치되어 있지 않습니다.'
-      );
+      showGlobalAlert({
+        title: '카카오페이 앱 필요',
+        message: '카카오페이 앱이 설치되어 있지 않습니다.',
+        type: 'error',
+      });
     }
   } catch (error) {
     console.error('카카오페이 송금 실행 에러:', error);
-    Alert.alert('실행 실패', '카카오페이 송금을 실행할 수 없습니다.');
+    showGlobalAlert({
+      title: '실행 실패',
+      message: '카카오페이 송금을 실행할 수 없습니다.',
+      type: 'error',
+    });
   }
 };
 
@@ -198,11 +213,19 @@ export const makePhoneCall = async (phoneNumber: string): Promise<void> => {
     if (canOpen) {
       await Linking.openURL(phoneUrl);
     } else {
-      Alert.alert('오류', '전화를 걸 수 없습니다.');
+      showGlobalAlert({
+        title: '오류',
+        message: '전화를 걸 수 없습니다.',
+        type: 'error',
+      });
     }
   } catch (error) {
     console.error('전화 걸기 에러:', error);
-    Alert.alert('오류', '전화를 걸 수 없습니다.');
+    showGlobalAlert({
+      title: '오류',
+      message: '전화를 걸 수 없습니다.',
+      type: 'error',
+    });
   }
 };
 
@@ -222,11 +245,19 @@ export const sendSMS = async (
     if (canOpen) {
       await Linking.openURL(smsUrl);
     } else {
-      Alert.alert('오류', '문자를 보낼 수 없습니다.');
+      showGlobalAlert({
+        title: '오류',
+        message: '문자를 보낼 수 없습니다.',
+        type: 'error',
+      });
     }
   } catch (error) {
     console.error('문자 보내기 에러:', error);
-    Alert.alert('오류', '문자를 보낼 수 없습니다.');
+    showGlobalAlert({
+      title: '오류',
+      message: '문자를 보낼 수 없습니다.',
+      type: 'error',
+    });
   }
 };
 
@@ -253,11 +284,19 @@ export const sendEmail = async (
     if (canOpen) {
       await Linking.openURL(emailUrl);
     } else {
-      Alert.alert('오류', '이메일을 보낼 수 없습니다.');
+      showGlobalAlert({
+        title: '오류',
+        message: '이메일을 보낼 수 없습니다.',
+        type: 'error',
+      });
     }
   } catch (error) {
     console.error('이메일 보내기 에러:', error);
-    Alert.alert('오류', '이메일을 보낼 수 없습니다.');
+    showGlobalAlert({
+      title: '오류',
+      message: '이메일을 보낼 수 없습니다.',
+      type: 'error',
+    });
   }
 };
 
@@ -270,10 +309,18 @@ export const openURL = async (url: string): Promise<void> => {
     if (canOpen) {
       await Linking.openURL(url);
     } else {
-      Alert.alert('오류', 'URL을 열 수 없습니다.');
+      showGlobalAlert({
+        title: '오류',
+        message: 'URL을 열 수 없습니다.',
+        type: 'error',
+      });
     }
   } catch (error) {
     console.error('URL 열기 에러:', error);
-    Alert.alert('오류', 'URL을 열 수 없습니다.');
+    showGlobalAlert({
+      title: '오류',
+      message: 'URL을 열 수 없습니다.',
+      type: 'error',
+    });
   }
 };

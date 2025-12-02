@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  Alert,
   FlatList,
   TouchableOpacity,
 } from 'react-native';
@@ -24,6 +23,7 @@ import { VoteResponse, VoteOptionDto } from '../../types/vote.types';
 import { GroupMemberDto } from '../../types/group.types';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { COLORS } from '../../constants/colors';
 import { ROUTES } from '../../constants/routes';
 
@@ -39,6 +39,7 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
   const { expenseId, isEdit } = route.params;
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { showAlert } = useCustomAlert();
 
   // State
   const [voteData, setVoteData] = useState<VoteResponse | null>(null);
@@ -83,28 +84,28 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
       setError('');
       setLoading(true);
 
-      // 투표 현황과 지출 정보를 병렬로 조회
-      const [voteResponse, expenseDetail] = await Promise.all([
-        voteApi.getVoteStatus(expenseId),
-        expenseApi.getExpenseDetail(expenseId),
-      ]);
-
-      setVoteData(voteResponse);
+      // 1. 지출 정보를 먼저 조회
+      const expenseDetail = await expenseApi.getExpenseDetail(expenseId);
       setExpenseData(expenseDetail);
 
-      // 그룹 멤버 조회 (expenseDetail의 groupId 필요)
+      // 2. 현재 사용자가 지출 참여자인지 확인 (접근 권한)
+      if (user && expenseDetail.participants && expenseDetail.participants.length > 0) {
+        const isParticipant = expenseDetail.participants.includes(user.name);
+        if (!isParticipant) {
+          setError('이 지출의 참여자만 투표할 수 있습니다.');
+          return;
+        }
+      }
+
+      // 3. 투표 현황 조회
+      const voteResponse = await voteApi.getVoteStatus(expenseId);
+      setVoteData(voteResponse);
+
+      // 4. 그룹 멤버 조회 (expenseDetail의 groupId 필요)
       const membersData = await groupMemberApi.getGroupMembers(
         expenseDetail.groupId
       );
       setMembers(membersData);
-
-      // 현재 사용자가 정산 참여자인지 확인
-      if (user && expenseDetail.participants && expenseDetail.participants.length > 0) {
-        const isParticipant = expenseDetail.participants.includes(user.name);
-        if (!isParticipant) {
-          setError('이 정산의 참여자만 투표할 수 있습니다.');
-        }
-      }
     } catch (err: any) {
       console.error('데이터 조회 에러:', err);
       setError(err.message || '데이터를 불러오는데 실패했습니다.');
@@ -202,10 +203,10 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
    * 투표 마감 (OWNER만)
    */
   const handleCloseVote = () => {
-    Alert.alert(
-      '투표 마감',
-      '투표를 마감하고 정산을 진행하시겠습니까?',
-      [
+    showAlert({
+      title: '투표 마감',
+      message: '투표를 마감하고 정산을 진행하시겠습니까?',
+      buttons: [
         { text: '취소', style: 'cancel' },
         {
           text: '마감',
@@ -234,8 +235,8 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   /**

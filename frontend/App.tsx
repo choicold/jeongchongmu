@@ -4,6 +4,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { NotificationProvider } from './src/context/NotificationContext';
 import { DataProvider } from './src/context/DataContext';
 import { ToastProvider } from './src/context/ToastContext';
+import { CustomAlertProvider } from './src/contexts/CustomAlertContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ChatAssistant } from './src/components/common';
 import { setupNotificationHandler } from './src/services/NotificationPermissionService';
@@ -18,8 +19,10 @@ export default function App() {
         <DataProvider>
           <NotificationProvider>
             <ToastProvider>
-              <AppNavigator />
-              <ChatAssistant />
+              <CustomAlertProvider>
+                <AppNavigator />
+                <ChatAssistant />
+              </CustomAlertProvider>
             </ToastProvider>
           </NotificationProvider>
         </DataProvider>

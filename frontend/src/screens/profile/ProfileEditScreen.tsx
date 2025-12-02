@@ -5,13 +5,13 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { ProfileStackParamList } from '../../navigation/MainNavigator';
 import { useAuth } from '../../context/AuthContext';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { COLORS } from '../../constants/colors';
@@ -25,6 +25,7 @@ type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileEdit'>;
  */
 export const ProfileEditScreen: React.FC<Props> = ({ navigation }) => {
   const { user, updateProfile } = useAuth();
+  const { showAlert } = useCustomAlert();
 
   const [name, setName] = useState(user?.name || '');
   const [bankName, setBankName] = useState(user?.bankName || '');
@@ -36,17 +37,26 @@ export const ProfileEditScreen: React.FC<Props> = ({ navigation }) => {
    */
   const handleSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert('오류', '이름을 입력해주세요.');
+      showAlert({
+        title: '오류',
+        message: '이름을 입력해주세요.',
+      });
       return;
     }
 
     if (!bankName.trim()) {
-      Alert.alert('오류', '은행명을 입력해주세요.');
+      showAlert({
+        title: '오류',
+        message: '은행명을 입력해주세요.',
+      });
       return;
     }
 
     if (!accountNumber.trim()) {
-      Alert.alert('오류', '계좌번호를 입력해주세요.');
+      showAlert({
+        title: '오류',
+        message: '계좌번호를 입력해주세요.',
+      });
       return;
     }
 
@@ -58,15 +68,22 @@ export const ProfileEditScreen: React.FC<Props> = ({ navigation }) => {
         accountNumber: accountNumber.trim(),
       });
 
-      Alert.alert('성공', '프로필이 수정되었습니다.', [
-        {
-          text: '확인',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      showAlert({
+        title: '성공',
+        message: '프로필이 수정되었습니다.',
+        buttons: [
+          {
+            text: '확인',
+            onPress: () => navigation.goBack(),
+          },
+        ],
+      });
     } catch (error: any) {
       console.error('프로필 수정 실패:', error);
-      Alert.alert('오류', error.message || '프로필 수정에 실패했습니다.');
+      showAlert({
+        title: '오류',
+        message: error.message || '프로필 수정에 실패했습니다.',
+      });
     } finally {
       setLoading(false);
     }

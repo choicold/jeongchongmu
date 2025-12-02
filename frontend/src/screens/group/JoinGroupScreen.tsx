@@ -7,7 +7,6 @@ import {
   Platform,
   ScrollView,
   SafeAreaView,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +16,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { ErrorMessage } from '../../components/common/ErrorMessage';
 import * as groupMemberApi from '../../services/api/groupMemberApi';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { COLORS } from '../../constants/colors';
 import { ROUTES } from '../../constants/routes';
 
@@ -29,6 +29,8 @@ type Props = NativeStackScreenProps<GroupsStackParamList, 'JoinGroup'>;
  * 참여 성공 시 해당 그룹의 상세 화면으로 이동합니다.
  */
 export const JoinGroupScreen: React.FC<Props> = ({ navigation }) => {
+  const { showAlert } = useCustomAlert();
+
   // State
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -78,10 +80,10 @@ export const JoinGroupScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       // 참여 성공
-      Alert.alert(
-        '그룹 참여 완료',
-        `그룹에 성공적으로 참여했습니다!`,
-        [
+      showAlert({
+        title: '그룹 참여 완료',
+        message: `그룹에 성공적으로 참여했습니다!`,
+        buttons: [
           {
             text: '확인',
             onPress: () => {
@@ -91,8 +93,8 @@ export const JoinGroupScreen: React.FC<Props> = ({ navigation }) => {
               });
             },
           },
-        ]
-      );
+        ],
+      });
     } catch (err: any) {
       console.error('그룹 참여 에러:', err);
       setError(err.message || '그룹 참여에 실패했습니다.');

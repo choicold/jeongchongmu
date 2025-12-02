@@ -6,7 +6,6 @@ import {
   ScrollView,
   FlatList,
   TouchableOpacity,
-  Alert,
   SafeAreaView,
   RefreshControl,
   Modal,
@@ -30,6 +29,7 @@ import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { getCategoryEmoji } from '../../utils/categoryIcons';
 
 type Props = NativeStackScreenProps<GroupsStackParamList, 'GroupDetail'>;
@@ -50,6 +50,7 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAuth();
   const { expenses, refreshExpenses, invalidateExpense, settlements } = useData();
   const { showToast } = useToast();
+  const { showAlert } = useCustomAlert();
 
   // State
   const [group, setGroup] = useState<GroupDto | null>(null);
@@ -166,10 +167,10 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleRegenerateInviteCode = () => {
     if (!group) return;
 
-    Alert.alert(
-      '초대 코드 갱신',
-      '초대 코드를 갱신하시겠습니까?\n\n기존 초대 코드는 더 이상 사용할 수 없게 됩니다.',
-      [
+    showAlert({
+      title: '초대 코드 갱신',
+      message: '초대 코드를 갱신하시겠습니까?\n\n기존 초대 코드는 더 이상 사용할 수 없게 됩니다.',
+      buttons: [
         {
           text: '취소',
           style: 'cancel',
@@ -187,8 +188,8 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   /**
@@ -206,7 +207,10 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
    */
   const handleSaveGroupEdit = async () => {
     if (!editName.trim()) {
-      Alert.alert('입력 오류', '그룹 이름을 입력해주세요.');
+      showAlert({
+        title: '입력 오류',
+        message: '그룹 이름을 입력해주세요.',
+      });
       return;
     }
 
@@ -218,10 +222,16 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       });
       setGroup(updatedGroup);
       setEditModalVisible(false);
-      Alert.alert('수정 완료', '그룹 정보가 수정되었습니다.');
+      showAlert({
+        title: '수정 완료',
+        message: '그룹 정보가 수정되었습니다.',
+      });
     } catch (err: any) {
       console.error('그룹 수정 에러:', err);
-      Alert.alert('수정 실패', err.message || '그룹 정보 수정에 실패했습니다.');
+      showAlert({
+        title: '수정 실패',
+        message: err.message || '그룹 정보 수정에 실패했습니다.',
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -249,10 +259,10 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleDeleteGroup = () => {
     if (!group) return;
 
-    Alert.alert(
-      '그룹 삭제',
-      `"${group.name}" 그룹을 정말 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 그룹의 모든 지출 내역과 정산 정보가 삭제됩니다.`,
-      [
+    showAlert({
+      title: '그룹 삭제',
+      message: `"${group.name}" 그룹을 정말 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 그룹의 모든 지출 내역과 정산 정보가 삭제됩니다.`,
+      buttons: [
         {
           text: '취소',
           style: 'cancel',
@@ -267,13 +277,15 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               navigation.goBack();
             } catch (err: any) {
               console.error('그룹 삭제 에러:', err);
-              Alert.alert('삭제 실패', err.message || '그룹 삭제에 실패했습니다.');
+              showAlert({
+                title: '삭제 실패',
+                message: err.message || '그룹 삭제에 실패했습니다.',
+              });
             }
           },
         },
       ],
-      { cancelable: false }
-    );
+    });
   };
 
   /**
@@ -282,10 +294,10 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleLeaveGroup = () => {
     if (!group) return;
 
-    Alert.alert(
-      '그룹 탈퇴',
-      `"${group.name}" 그룹에서 탈퇴하시겠습니까?\n\n탈퇴 후에는 그룹의 지출 내역과 정산 정보를 볼 수 없습니다.`,
-      [
+    showAlert({
+      title: '그룹 탈퇴',
+      message: `"${group.name}" 그룹에서 탈퇴하시겠습니까?\n\n탈퇴 후에는 그룹의 지출 내역과 정산 정보를 볼 수 없습니다.`,
+      buttons: [
         {
           text: '취소',
           style: 'cancel',
@@ -300,13 +312,15 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               navigation.goBack();
             } catch (err: any) {
               console.error('그룹 탈퇴 에러:', err);
-              Alert.alert('탈퇴 실패', err.message || '그룹 탈퇴에 실패했습니다.');
+              showAlert({
+                title: '탈퇴 실패',
+                message: err.message || '그룹 탈퇴에 실패했습니다.',
+              });
             }
           },
         },
       ],
-      { cancelable: false }
-    );
+    });
   };
 
   /**
@@ -315,14 +329,17 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleRemoveMember = (member: GroupMemberDto) => {
     if (!isOwner) return;
     if (member.role === 'OWNER') {
-      Alert.alert('강퇴 불가', '방장은 강퇴할 수 없습니다.');
+      showAlert({
+        title: '강퇴 불가',
+        message: '방장은 강퇴할 수 없습니다.',
+      });
       return;
     }
 
-    Alert.alert(
-      '멤버 강퇴',
-      `"${member.user.name}" 님을 그룹에서 강퇴하시겠습니까?`,
-      [
+    showAlert({
+      title: '멤버 강퇴',
+      message: `"${member.user.name}" 님을 그룹에서 강퇴하시겠습니까?`,
+      buttons: [
         {
           text: '취소',
           style: 'cancel',
@@ -336,16 +353,21 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               // 멤버 목록 새로고침
               const membersData = await groupMemberApi.getGroupMembers(groupId);
               setMembers(membersData);
-              Alert.alert('강퇴 완료', '멤버가 강퇴되었습니다.');
+              showAlert({
+                title: '강퇴 완료',
+                message: '멤버가 강퇴되었습니다.',
+              });
             } catch (err: any) {
               console.error('멤버 강퇴 에러:', err);
-              Alert.alert('강퇴 실패', err.message || '멤버 강퇴에 실패했습니다.');
+              showAlert({
+                title: '강퇴 실패',
+                message: err.message || '멤버 강퇴에 실패했습니다.',
+              });
             }
           },
         },
       ],
-      { cancelable: false }
-    );
+    });
   };
 
   /**
@@ -879,10 +901,10 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                   expenseId: expense.id
                                 });
                               } else {
-                                Alert.alert(
-                                  '정산 권한 없음',
-                                  '본인이 지출한 내역만 정산할 수 있습니다.'
-                                );
+                                showAlert({
+                                  title: '정산 권한 없음',
+                                  message: '본인이 지출한 내역만 정산할 수 있습니다.',
+                                });
                               }
                             }}
                             activeOpacity={0.7}

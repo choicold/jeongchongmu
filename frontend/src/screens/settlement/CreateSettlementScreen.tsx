@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -21,8 +20,10 @@ import * as expenseApi from '../../services/api/expenseApi';
 import * as groupMemberApi from '../../services/api/groupMemberApi';
 import * as settlementApi from '../../services/api/settlementApi';
 import * as voteApi from '../../services/api/voteApi';
+import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { ExpenseDetailDTO } from '../../types/expense.types';
 import { GroupMemberDto } from '../../types/group.types';
 import {
@@ -44,8 +45,10 @@ export const CreateSettlementScreen: React.FC<Props> = ({
   route,
 }) => {
   const { expenseId } = route.params;
+  const { user } = useAuth();
   const { invalidateSettlement, invalidateExpense } = useData();
   const { showToast } = useToast();
+  const { showAlert } = useCustomAlert();
 
   // === 1단계: 기본 State ===
   const [expense, setExpense] = useState<ExpenseDetailDTO | null>(null);
@@ -78,16 +81,26 @@ export const CreateSettlementScreen: React.FC<Props> = ({
       setError('');
       setLoading(true);
 
-      // 지출 정보 조회
+      // 1. 지출 정보 조회
       const expenseData = await expenseApi.getExpenseDetail(expenseId);
+
+      // 2. 접근 권한 확인: 현재 사용자가 지출 참여자인지 확인
+      if (user && expenseData.participants && expenseData.participants.length > 0) {
+        const isParticipant = expenseData.participants.includes(user.name);
+        if (!isParticipant) {
+          setError('이 지출의 참여자만 정산을 생성할 수 있습니다.');
+          return;
+        }
+      }
+
       setExpense(expenseData);
 
-      // 그룹 멤버 조회
+      // 3. 그룹 멤버 조회
       const membersData = await groupMemberApi.getGroupMembers(
         expenseData.groupId
       );
 
-      // 지출에 포함된 멤버만 필터링
+      // 4. 지출에 포함된 멤버만 필터링 (정산 참여자는 지출 참여자와 동일)
       const filteredMembers = expenseData.participants && expenseData.participants.length > 0
         ? membersData.filter(member =>
             expenseData.participants.includes(member.user.name)
@@ -123,7 +136,10 @@ export const CreateSettlementScreen: React.FC<Props> = ({
     // 입력값 검증
     const validationError = validateInputs();
     if (validationError) {
-      Alert.alert('입력 오류', validationError);
+      showAlert({
+        title: '입력 오류',
+        message: validationError,
+      });
       return;
     }
 
@@ -209,25 +225,29 @@ export const CreateSettlementScreen: React.FC<Props> = ({
       invalidateSettlement(expenseId);
       invalidateExpense(expenseId);
 
-      Alert.alert('성공', '정산이 생성되었습니다.', [
-        {
-          text: '확인',
-          onPress: () => {
-            navigation.replace('SettlementDetail', {
-              settlementId: settlement.settlementId,
-            });
+      showAlert({
+        title: '성공',
+        message: '정산이 생성되었습니다.',
+        buttons: [
+          {
+            text: '확인',
+            onPress: () => {
+              navigation.replace('SettlementDetail', {
+                settlementId: settlement.settlementId,
+              });
+            },
           },
-        },
-      ]);
+        ],
+      });
     } catch (error: any) {
       console.error('정산 생성 에러:', error);
 
       // 중복 정산 에러인 경우 기존 정산 조회 옵션 제공
       if (error.message?.includes('이미 정산이 생성된')) {
-        Alert.alert(
-          '정산 중복',
-          '이미 정산이 생성된 지출입니다. 기존 정산을 확인하시겠습니까?',
-          [
+        showAlert({
+          title: '정산 중복',
+          message: '이미 정산이 생성된 지출입니다. 기존 정산을 확인하시겠습니까?',
+          buttons: [
             {
               text: '취소',
               style: 'cancel',
@@ -250,10 +270,13 @@ export const CreateSettlementScreen: React.FC<Props> = ({
                 }
               },
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('오류', error.message || '정산 생성에 실패했습니다.');
+        showAlert({
+          title: '오류',
+          message: error.message || '정산 생성에 실패했습니다.',
+        });
       }
     } finally {
       setLoading(false);

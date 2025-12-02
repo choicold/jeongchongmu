@@ -7,7 +7,6 @@ import {
   RefreshControl,
   SafeAreaView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +14,7 @@ import { Card } from '../../components/common/Card';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorMessage } from '../../components/common/ErrorMessage';
 import * as notificationApi from '../../services/api/notificationApi';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { NotificationDto, NotificationType } from '../../types/notification.types';
 import { COLORS } from '../../constants/colors';
 
@@ -26,6 +26,7 @@ import { COLORS } from '../../constants/colors';
  */
 export const NotificationListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { showAlert } = useCustomAlert();
 
   // State
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
@@ -159,7 +160,10 @@ export const NotificationListScreen: React.FC = () => {
       }
     } catch (err: any) {
       console.error('화면 이동 중 에러:', err);
-      Alert.alert('오류', err.message || '화면 이동에 실패했습니다.');
+      showAlert({
+        title: '오류',
+        message: err.message || '화면 이동에 실패했습니다.',
+      });
     }
   };
 

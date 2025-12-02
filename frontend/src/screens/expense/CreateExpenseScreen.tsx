@@ -8,7 +8,6 @@ import {
   Platform,
   SafeAreaView,
   TouchableOpacity,
-  Alert,
   TextInput,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -29,6 +28,7 @@ import * as expenseApi from '../../services/api/expenseApi';
 import * as groupMemberApi from '../../services/api/groupMemberApi';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 
 type Props = NativeStackScreenProps<GroupsStackParamList, 'CreateExpense'>;
 
@@ -46,6 +46,7 @@ export const CreateExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
   const { groupId, ocrResult } = route.params;
   const { refreshExpenses, invalidateExpense } = useData();
   const { showToast } = useToast();
+  const { showAlert } = useCustomAlert();
 
   // === 1단계: 기본 State ===
   const [title, setTitle] = useState('');
@@ -199,9 +200,27 @@ export const CreateExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
+    // 그룹 멤버 수 검증
+    if (members.length < 2) {
+      showAlert({
+        title: '지출 생성 불가',
+        message: '지출은 2명 이상의 그룹에서만 생성할 수 있습니다.',
+      });
+      return;
+    }
+
     // 참여자 선택 검증
     if (participantIds.length === 0) {
       showToast('참여자를 최소 1명 이상 선택해주세요.', 'warning');
+      return;
+    }
+
+    // 참여자가 1명만 선택된 경우 방지
+    if (participantIds.length < 2) {
+      showAlert({
+        title: '참여자 선택 오류',
+        message: '지출은 2명 이상이 참여해야 합니다.\n최소 2명 이상의 참여자를 선택해주세요.',
+      });
       return;
     }
 
@@ -214,14 +233,14 @@ export const CreateExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
       const totalAmount = parseInt(amount.replace(/,/g, ''), 10);
 
       if (itemsTotal !== totalAmount) {
-        Alert.alert(
-          '금액 불일치',
-          `총 금액(${totalAmount.toLocaleString()}원)과 세부 항목 합계(${itemsTotal.toLocaleString()}원)가 일치하지 않습니다. 계속하시겠습니까?`,
-          [
+        showAlert({
+          title: '금액 불일치',
+          message: `총 금액(${totalAmount.toLocaleString()}원)과 세부 항목 합계(${itemsTotal.toLocaleString()}원)가 일치하지 않습니다. 계속하시겠습니까?`,
+          buttons: [
             { text: '취소', style: 'cancel' },
             { text: '계속', onPress: () => submitExpense() },
-          ]
-        );
+          ],
+        });
         return;
       }
     }
@@ -402,13 +421,37 @@ export const CreateExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.loadingContainer}>
                   <Text style={styles.loadingText}>멤버 목록 로딩 중...</Text>
                 </View>
+              ) : members.length < 2 ? (
+                <View style={styles.warningContainer}>
+                  <Ionicons
+                    name="warning-outline"
+                    size={24}
+                    color={COLORS.warning}
+                  />
+                  <Text style={styles.warningText}>
+                    그룹 멤버가 2명 이상이어야 지출을 생성할 수 있습니다.{'\n'}
+                    그룹에 멤버를 초대해주세요.
+                  </Text>
+                </View>
               ) : (
-                <ParticipantSelector
-                  members={members}
-                  selectedIds={participantIds}
-                  onSelectionChange={setParticipantIds}
-                  multiSelect
-                />
+                <>
+                  <View style={styles.participantHintContainer}>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={16}
+                      color={COLORS.primary}
+                    />
+                    <Text style={styles.participantHint}>
+                      지출은 2명 이상이 참여해야 합니다
+                    </Text>
+                  </View>
+                  <ParticipantSelector
+                    members={members}
+                    selectedIds={participantIds}
+                    onSelectionChange={setParticipantIds}
+                    multiSelect
+                  />
+                </>
               )}
             </View>
 
@@ -430,7 +473,7 @@ export const CreateExpenseScreen: React.FC<Props> = ({ navigation, route }) => {
                 loading ||
                 !title.trim() ||
                 !amount.trim() ||
-                participantIds.length === 0
+                participantIds.length < 2
               }
               style={styles.submitButton}
             />
@@ -631,6 +674,36 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: COLORS.text.tertiary,
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FEF3C7', // amber-100
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A', // amber-200
+    gap: 12,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#92400E', // amber-800
+    lineHeight: 20,
+  },
+  participantHintContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#DBEAFE', // blue-100
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  participantHint: {
+    fontSize: 13,
+    color: '#1E40AF', // blue-800
+    fontWeight: '500',
   },
   // 하단 버튼
   footer: {

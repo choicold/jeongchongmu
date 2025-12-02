@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  Alert,
   FlatList,
   TouchableOpacity,
 } from 'react-native';
@@ -23,6 +22,7 @@ import { VoteResponse, VoteOptionDto } from '../../types/vote.types';
 import { GroupMemberDto } from '../../types/group.types';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useCustomAlert } from '../../contexts/CustomAlertContext';
 import { COLORS } from '../../constants/colors';
 
 type Props = NativeStackScreenProps<GroupsStackParamList, 'VoteDetail'>;
@@ -39,6 +39,7 @@ export const VoteDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { expenseId } = route.params;
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { showAlert } = useCustomAlert();
 
   // State
   const [voteData, setVoteData] = useState<VoteResponse | null>(null);
@@ -92,28 +93,39 @@ export const VoteDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       setError('');
       setLoading(true);
 
-      // 투표 현황과 지출 정보를 병렬로 조회
-      const [voteResponse, expenseDetail] = await Promise.all([
-        voteApi.getVoteStatus(expenseId),
-        expenseApi.getExpenseDetail(expenseId),
-      ]);
-
-      setVoteData(voteResponse);
+      // 1. 먼저 지출 정보를 조회
+      const expenseDetail = await expenseApi.getExpenseDetail(expenseId);
       setExpenseData(expenseDetail);
 
-      // 그룹 멤버 조회 (expenseDetail의 groupId 필요)
+      // 2. 투표 현황 조회 (투표가 없을 수 있음)
+      try {
+        const voteResponse = await voteApi.getVoteStatus(expenseId);
+        setVoteData(voteResponse);
+      } catch (voteErr: any) {
+        // 투표가 없는 경우는 에러로 처리하지 않음
+        if (voteErr.message?.includes('투표가 아직 생성되지 않았습니다')) {
+          console.log('투표가 아직 생성되지 않았습니다.');
+          setVoteData(null);
+        } else {
+          // 다른 에러인 경우 throw
+          throw voteErr;
+        }
+      }
+
+      // 3. 현재 사용자가 지출 참여자인지 확인 (접근 권한)
+      if (user && expenseDetail.participants && expenseDetail.participants.length > 0) {
+        const isParticipant = expenseDetail.participants.includes(user.name);
+        if (!isParticipant) {
+          setError('이 지출의 참여자만 투표 내용을 볼 수 있습니다.');
+          return;
+        }
+      }
+
+      // 4. 그룹 멤버 조회 (expenseDetail의 groupId 필요)
       const membersData = await groupMemberApi.getGroupMembers(
         expenseDetail.groupId
       );
       setMembers(membersData);
-
-      // 현재 사용자가 정산 참여자인지 확인
-      if (user && expenseDetail.participants && expenseDetail.participants.length > 0) {
-        const isParticipant = expenseDetail.participants.includes(user.name);
-        if (!isParticipant) {
-          setError('이 정산의 참여자만 투표 내용을 볼 수 있습니다.');
-        }
-      }
     } catch (err: any) {
       console.error('데이터 조회 에러:', err);
       setError(err.message || '데이터를 불러오는데 실패했습니다.');
@@ -159,10 +171,10 @@ export const VoteDetailScreen: React.FC<Props> = ({ navigation, route }) => {
    * 투표 삭제 (OWNER만)
    */
   const handleDelete = () => {
-    Alert.alert(
-      '투표 삭제',
-      '투표를 삭제하시겠습니까?\n\n모든 투표 데이터가 삭제되며 투표를 다시 생성할 수 있습니다.',
-      [
+    showAlert({
+      title: '투표 삭제',
+      message: '투표를 삭제하시겠습니까?\n\n모든 투표 데이터가 삭제되며 투표를 다시 생성할 수 있습니다.',
+      buttons: [
         { text: '취소', style: 'cancel' },
         {
           text: '삭제',
@@ -195,8 +207,8 @@ export const VoteDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   /**
@@ -238,11 +250,45 @@ export const VoteDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   }
 
   /**
-   * 투표 데이터가 없는 경우
+   * 투표 데이터가 없는 경우 (아직 생성되지 않음)
    */
   if (!voteData) {
     return (
-      <ErrorMessage message="투표 정보를 찾을 수 없습니다." fullScreen />
+      <SafeAreaView style={styles.container}>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const expenseData = await expenseApi.getExpenseDetail(expenseId);
+                navigation.navigate('GroupDetail', {
+                  groupId: expenseData.groupId,
+                  initialTab: 'settlement',
+                });
+              } catch (err) {
+                navigation.goBack();
+              }
+            }}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerContainerTitle}>항목별 투표</Text>
+          <View style={styles.headerActions} />
+        </View>
+        <View style={styles.emptyStateContainer}>
+          <Ionicons
+            name="checkbox-outline"
+            size={64}
+            color={COLORS.text.tertiary}
+          />
+          <Text style={styles.emptyStateTitle}>투표가 생성되지 않았습니다</Text>
+          <Text style={styles.emptyStateSubtitle}>
+            아직 이 지출에 대한 투표가 생성되지 않았습니다.{'\n'}
+            정산 생성 화면에서 항목별 정산을 선택하여{'\n'}
+            투표를 생성할 수 있습니다.
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
