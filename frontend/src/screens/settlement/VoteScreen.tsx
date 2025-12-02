@@ -48,6 +48,7 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [expenseData, setExpenseData] = useState<any>(null);
 
   /**
    * 화면 진입 시 데이터 로드
@@ -82,18 +83,28 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
       setError('');
       setLoading(true);
 
-      // 투표 현황 조회
-      const voteResponse = await voteApi.getVoteStatus(expenseId);
+      // 투표 현황과 지출 정보를 병렬로 조회
+      const [voteResponse, expenseDetail] = await Promise.all([
+        voteApi.getVoteStatus(expenseId),
+        expenseApi.getExpenseDetail(expenseId),
+      ]);
+
       setVoteData(voteResponse);
+      setExpenseData(expenseDetail);
 
-      // 지출 정보 조회 (groupId 가져오기)
-      const expenseData = await expenseApi.getExpenseDetail(expenseId);
-
-      // 그룹 멤버 조회 (userId를 이름으로 변환하기 위해)
+      // 그룹 멤버 조회 (expenseDetail의 groupId 필요)
       const membersData = await groupMemberApi.getGroupMembers(
-        expenseData.groupId
+        expenseDetail.groupId
       );
       setMembers(membersData);
+
+      // 현재 사용자가 정산 참여자인지 확인
+      if (user && expenseDetail.participants && expenseDetail.participants.length > 0) {
+        const isParticipant = expenseDetail.participants.includes(user.name);
+        if (!isParticipant) {
+          setError('이 정산의 참여자만 투표할 수 있습니다.');
+        }
+      }
     } catch (err: any) {
       console.error('데이터 조회 에러:', err);
       setError(err.message || '데이터를 불러오는데 실패했습니다.');
@@ -273,6 +284,66 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   }
 
+  /**
+   * 투표 항목이 없는 경우 (지출 등록 시 항목을 추가하지 않은 경우)
+   */
+  if (voteData.options.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const expenseData = await expenseApi.getExpenseDetail(expenseId);
+                navigation.navigate('GroupDetail', {
+                  groupId: expenseData.groupId,
+                  initialTab: 'settlement',
+                });
+              } catch (err) {
+                navigation.goBack();
+              }
+            }}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerContainerTitle}>항목별 투표</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.emptyStateContainer}>
+          <Ionicons
+            name="basket-outline"
+            size={64}
+            color={COLORS.text.tertiary}
+          />
+          <Text style={styles.emptyStateTitle}>투표할 항목이 없습니다</Text>
+          <Text style={styles.emptyStateSubtitle}>
+            지출 등록 시 항목을 추가하지 않아{'\n'}
+            투표를 진행할 수 없습니다.
+          </Text>
+          {isOwner() && (
+            <Button
+              title="지출 수정하기"
+              onPress={async () => {
+                try {
+                  const expenseData = await expenseApi.getExpenseDetail(expenseId);
+                  navigation.navigate('GroupDetail', {
+                    groupId: expenseData.groupId,
+                    initialTab: 'settlement',
+                  });
+                } catch (err) {
+                  navigation.goBack();
+                }
+              }}
+              variant="secondary"
+              style={styles.emptyStateButton}
+            />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* 헤더 */}
@@ -302,7 +373,7 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* 서브 헤더 */}
         <View style={styles.header}>
           <Text style={styles.headerSubtitle}>
-            내가 먹은 항목을 선택해주세요 (다중 선택 가능)
+            내가 사용한 항목을 선택해주세요 (다중 선택 가능)
           </Text>
         </View>
 
@@ -402,7 +473,7 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
           />
           <Text style={styles.infoText}>
             여러 항목을 선택할 수 있습니다.{'\n'}
-            나눠먹은 항목은 모두 선택해주세요.
+            함께 사용한 항목은 모두 선택해주세요.
           </Text>
         </View>
       </ScrollView>
@@ -535,5 +606,28 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     marginLeft: 12,
     lineHeight: 20,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  emptyStateSubtitle: {
+    fontSize: 15,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  emptyStateButton: {
+    minWidth: 200,
   },
 });

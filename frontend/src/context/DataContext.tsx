@@ -104,18 +104,25 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       const expenseList = await expenseApi.getExpensesByGroup(groupId);
       setExpenses(expenseList);
 
-      // 정산 정보도 함께 캐싱
+      // 정산 정보도 함께 캐싱 (병렬 처리로 최적화)
+      const settlementPromises = expenseList
+        .filter(expense => expense.settlementId)
+        .map(expense =>
+          settlementApi.getSettlement(expense.settlementId!)
+            .then(settlement => ({ expenseId: expense.id, settlement }))
+            .catch(error => {
+              console.error(`정산 ${expense.settlementId} 조회 실패:`, error);
+              return null;
+            })
+        );
+
+      const results = await Promise.all(settlementPromises);
       const newSettlements = new Map<number, SettlementResponse>();
-      for (const expense of expenseList) {
-        if (expense.settlementId) {
-          try {
-            const settlement = await settlementApi.getSettlement(expense.settlementId);
-            newSettlements.set(expense.id, settlement);
-          } catch (error) {
-            console.error(`정산 ${expense.settlementId} 조회 실패:`, error);
-          }
+      results.forEach(result => {
+        if (result) {
+          newSettlements.set(result.expenseId, result.settlement);
         }
-      }
+      });
       setSettlements(newSettlements);
     } catch (error) {
       console.error('지출 목록 조회 실패:', error);

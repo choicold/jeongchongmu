@@ -712,8 +712,10 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                         <TouchableOpacity
                           style={styles.settlementItem}
                           onPress={() => {
-                            navigation.navigate('VoteDetail', {
-                              expenseId: expense.id
+                            // 투표 진행 중인 경우 Vote 화면으로 이동 (투표/수정 가능)
+                            navigation.navigate('Vote', {
+                              expenseId: expense.id,
+                              isEdit: false
                             });
                           }}
                           activeOpacity={0.7}

@@ -133,6 +133,8 @@ export function setupNotificationHandler(): void {
       shouldShowAlert: true,  // 알림을 화면에 표시
       shouldPlaySound: true,  // 알림 소리 재생
       shouldSetBadge: true,   // 앱 아이콘 배지 설정
+      shouldShowBanner: true, // 상단 배너 알림
+      shouldShowList: true,   // 알림 센터 목록
     }),
   });
 }

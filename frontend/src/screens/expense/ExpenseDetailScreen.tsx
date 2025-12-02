@@ -112,10 +112,10 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   /**
-   * 투표 조회 화면으로 이동
+   * 투표 화면으로 이동
    */
-  const goToVoteDetail = () => {
-    navigation.navigate('VoteDetail', { expenseId });
+  const goToVote = () => {
+    navigation.navigate('Vote', { expenseId, isEdit: false });
   };
 
   /**
@@ -380,13 +380,13 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           ) : voteExists ? (
             <>
               <Button
-                title="투표 조회하기"
-                onPress={goToVoteDetail}
+                title="투표하기"
+                onPress={goToVote}
                 variant="secondary"
                 style={styles.settlementButton}
               />
               <Text style={styles.settlementButtonHint}>
-                항목별 투표를 조회하거나 수정합니다
+                항목별 투표에 참여하거나 수정합니다
               </Text>
             </>
           ) : (

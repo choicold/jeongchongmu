@@ -98,25 +98,34 @@ export const StatisticsScreen: React.FC<Props> = ({ navigation }) => {
       setError('');
       setLoading(true);
 
-      // 현재 월 통계
-      const data = await statisticsApi.getMonthlyStatistics(
-        selectedGroupId,
-        selectedYear,
-        selectedMonth
-      );
-      setStatistics(data);
-
-      // 이전 월 통계 (비교용)
+      // 현재 월과 이전 월 통계를 병렬로 조회
       const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
       const prevYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
-      try {
-        const prevData = await statisticsApi.getMonthlyStatistics(
+
+      const [data, prevData] = await Promise.allSettled([
+        statisticsApi.getMonthlyStatistics(
+          selectedGroupId,
+          selectedYear,
+          selectedMonth
+        ),
+        statisticsApi.getMonthlyStatistics(
           selectedGroupId,
           prevYear,
           prevMonth
-        );
-        setPreviousMonthStats(prevData);
-      } catch (err) {
+        ),
+      ]);
+
+      // 현재 월 통계 처리
+      if (data.status === 'fulfilled') {
+        setStatistics(data.value);
+      } else {
+        throw data.reason;
+      }
+
+      // 이전 월 통계 처리 (실패해도 무시)
+      if (prevData.status === 'fulfilled') {
+        setPreviousMonthStats(prevData.value);
+      } else {
         console.log('이전 달 통계 조회 실패 (무시)');
         setPreviousMonthStats(null);
       }
@@ -843,7 +852,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 28,
   },
   chartTitle: {
     fontSize: 16,
