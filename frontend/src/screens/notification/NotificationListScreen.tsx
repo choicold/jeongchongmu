@@ -15,7 +15,6 @@ import { Card } from '../../components/common/Card';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorMessage } from '../../components/common/ErrorMessage';
 import * as notificationApi from '../../services/api/notificationApi';
-import * as settlementApi from '../../services/api/settlementApi';
 import { NotificationDto, NotificationType } from '../../types/notification.types';
 import { COLORS } from '../../constants/colors';
 
@@ -107,41 +106,51 @@ export const NotificationListScreen: React.FC = () => {
       switch (type) {
         case 'SETTLEMENT_REQUEST':
         case 'SETTLEMENT_REMINDER':
-          // 정산 상세 화면으로 이동 (GroupsTab의 SettlementDetail)
+          // 정산 상세 화면으로 이동 (MainTab의 SettlementDetail)
           // relatedId는 settlementId
-          // SettlementDetail은 settlement 객체를 받으므로 먼저 조회
-          const settlement = await settlementApi.getSettlement(relatedId);
-          navigation.navigate('GroupsTab', {
-            screen: 'SettlementDetail',
-            params: { settlement },
+          navigation.navigate('MainTab', {
+            screen: 'Main',
+            params: {
+              screen: 'SettlementDetail',
+              params: { settlementId: relatedId },
+            },
           });
           break;
 
         case 'VOTE_CREATED':
         case 'VOTE_CLOSE':
-          // 투표 화면으로 이동 (GroupsTab의 Vote)
+          // 투표 화면으로 이동 (MainTab의 Vote)
           // relatedId는 expenseId
-          navigation.navigate('GroupsTab', {
-            screen: 'Vote',
-            params: { expenseId: relatedId },
+          navigation.navigate('MainTab', {
+            screen: 'Main',
+            params: {
+              screen: 'Vote',
+              params: { expenseId: relatedId },
+            },
           });
           break;
 
         case 'EXPENSE_ADDED':
-          // 지출 상세 화면으로 이동 (GroupsTab의 ExpenseDetail)
+          // 지출 상세 화면으로 이동 (MainTab의 ExpenseDetail)
           // relatedId는 expenseId
-          navigation.navigate('GroupsTab', {
-            screen: 'ExpenseDetail',
-            params: { expenseId: relatedId },
+          navigation.navigate('MainTab', {
+            screen: 'Main',
+            params: {
+              screen: 'ExpenseDetail',
+              params: { expenseId: relatedId },
+            },
           });
           break;
 
         case 'GROUP_INVITE':
-          // 그룹 상세 화면으로 이동 (GroupsTab의 GroupDetail)
+          // 그룹 상세 화면으로 이동 (MainTab의 GroupDetail)
           // relatedId는 groupId
-          navigation.navigate('GroupsTab', {
-            screen: 'GroupDetail',
-            params: { groupId: relatedId },
+          navigation.navigate('MainTab', {
+            screen: 'Main',
+            params: {
+              screen: 'GroupDetail',
+              params: { groupId: relatedId },
+            },
           });
           break;
 

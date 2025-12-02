@@ -7,7 +7,6 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
-  Alert,
   AppState,
   AppStateStatus,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { Card } from '../../components/common/Card';
 import { SettlementDetailCard } from '../../components/settlement/SettlementDetailCard';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorMessage } from '../../components/common/ErrorMessage';
+import { CustomDialog, DialogButton } from '../../components/common';
 import { SettlementResponse, SettlementDetailDto } from '../../types/settlement.types';
 import * as DeepLinkService from '../../services/DeepLinkService';
 import * as settlementApi from '../../services/api/settlementApi';
@@ -41,10 +41,25 @@ export const SettlementDetailScreen: React.FC<Props> = ({
   const { user } = useAuth();
   const { showToast } = useToast();
 
+  // settlementId 유효성 검사
+  useEffect(() => {
+    if (!settlementId || isNaN(settlementId) || settlementId <= 0) {
+      showToast('잘못된 정산 정보입니다.', 'error');
+      navigation.goBack();
+    }
+  }, [settlementId]);
+
   // State
   const [settlementData, setSettlementData] = useState<SettlementResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Dialog states
+  const [transferDialogVisible, setTransferDialogVisible] = useState(false);
+  const [transferDialogData, setTransferDialogData] = useState<SettlementDetailDto | null>(null);
+  const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
+  const [confirmDialogData, setConfirmDialogData] = useState<SettlementDetailDto | null>(null);
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
 
   // 송금 대기 중인 정산 내역 추적
   const pendingTransferRef = useRef<SettlementDetailDto | null>(null);
@@ -149,46 +164,40 @@ export const SettlementDetailScreen: React.FC<Props> = ({
    * 송금 완료 확인 다이얼로그 표시
    */
   const showTransferConfirmation = (detail: SettlementDetailDto) => {
-    Alert.alert(
-      '송금 확인',
-      '송금을 완료하셨나요?',
-      [
-        {
-          text: '아니오',
-          style: 'cancel',
-        },
-        {
-          text: '완료',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              // 송금 확인 API 호출
-              const updated = await settlementApi.confirmTransfer(
-                settlementId,
-                detail.debtorId,
-                detail.creditorId
-              );
+    setConfirmDialogData(detail);
+    setConfirmDialogVisible(true);
+  };
 
-              // 정산 데이터 업데이트
-              setSettlementData(updated);
+  /**
+   * 송금 완료 확인 처리
+   */
+  const handleConfirmTransfer = async () => {
+    if (!confirmDialogData) return;
 
-              // 상태 메시지 표시
-              if (updated.status === 'COMPLETED') {
-                showToast('모든 멤버의 송금이 완료되어 정산이 완료되었습니다!', 'success', 4000);
-              } else {
-                showToast('송금이 확인되었습니다.', 'success');
-              }
-            } catch (error: any) {
-              console.error('송금 확인 에러:', error);
-              showToast(error.message || '송금 확인에 실패했습니다.', 'error');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    try {
+      setLoading(true);
+      // 송금 확인 API 호출
+      const updated = await settlementApi.confirmTransfer(
+        settlementId,
+        confirmDialogData.debtorId,
+        confirmDialogData.creditorId
+      );
+
+      // 정산 데이터 업데이트
+      setSettlementData(updated);
+
+      // 상태 메시지 표시
+      if (updated.status === 'COMPLETED') {
+        showToast('모든 멤버의 송금이 완료되어 정산이 완료되었습니다!', 'success', 4000);
+      } else {
+        showToast('송금이 확인되었습니다.', 'success');
+      }
+    } catch (error: any) {
+      console.error('송금 확인 에러:', error);
+      showToast(error.message || '송금 확인에 실패했습니다.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   /**
@@ -196,35 +205,30 @@ export const SettlementDetailScreen: React.FC<Props> = ({
    */
   const handleTransfer = async (detail: SettlementDetailDto) => {
     if (!detail.creditorBankName || !detail.creditorAccountNumber) {
-      Alert.alert('오류', '계좌 정보가 없습니다.');
+      showToast('계좌 정보가 없습니다.', 'error');
       return;
     }
 
-    // 송금 확인 다이얼로그
-    Alert.alert(
-      '송금하기',
-      `${detail.creditorName}님에게 ${detail.amount.toLocaleString()}원을 송금하시겠습니까?\n\n토스 앱으로 이동하여 송금을 완료한 후 앱으로 돌아오면 송금 확인 메시지가 표시됩니다.`,
-      [
-        {
-          text: '취소',
-          style: 'cancel',
-        },
-        {
-          text: '토스로 이동',
-          onPress: () => {
-            // 송금 대기 중인 내역 저장
-            pendingTransferRef.current = detail;
+    // 송금 확인 다이얼로그 표시
+    setTransferDialogData(detail);
+    setTransferDialogVisible(true);
+  };
 
-            // 토스 송금 화면으로 이동
-            DeepLinkService.openTossTransfer(
-              detail.creditorBankName!,
-              detail.creditorAccountNumber!,
-              detail.amount,
-              `${detail.debtorName} → ${detail.creditorName} 정산`
-            );
-          },
-        },
-      ]
+  /**
+   * 토스로 이동 처리
+   */
+  const handleGoToToss = () => {
+    if (!transferDialogData) return;
+
+    // 송금 대기 중인 내역 저장
+    pendingTransferRef.current = transferDialogData;
+
+    // 토스 송금 화면으로 이동
+    DeepLinkService.openTossTransfer(
+      transferDialogData.creditorBankName!,
+      transferDialogData.creditorAccountNumber!,
+      transferDialogData.amount,
+      `${transferDialogData.debtorName} → ${transferDialogData.creditorName} 정산`
     );
   };
 
@@ -232,34 +236,24 @@ export const SettlementDetailScreen: React.FC<Props> = ({
    * 정산 삭제 핸들러
    */
   const handleDelete = () => {
-    Alert.alert(
-      '정산 삭제',
-      '정산을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await settlementApi.deleteSettlement(settlementId);
-              Alert.alert('삭제 완료', '정산이 삭제되었습니다.', [
-                {
-                  text: '확인',
-                  onPress: () => navigation.goBack(),
-                },
-              ]);
-            } catch (error: any) {
-              console.error('정산 삭제 에러:', error);
-              Alert.alert('오류', error.message || '정산 삭제에 실패했습니다.');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    setDeleteDialogVisible(true);
+  };
+
+  /**
+   * 정산 삭제 확인 처리
+   */
+  const handleConfirmDelete = async () => {
+    try {
+      setLoading(true);
+      await settlementApi.deleteSettlement(settlementId);
+      showToast('정산이 삭제되었습니다.', 'success');
+      navigation.goBack();
+    } catch (error: any) {
+      console.error('정산 삭제 에러:', error);
+      showToast(error.message || '정산 삭제에 실패했습니다.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   /**
@@ -451,6 +445,67 @@ export const SettlementDetailScreen: React.FC<Props> = ({
           </Text>
         </View>
       </ScrollView>
+
+      {/* 송금하기 확인 다이얼로그 */}
+      <CustomDialog
+        visible={transferDialogVisible}
+        title="송금하기"
+        message={
+          transferDialogData
+            ? `${transferDialogData.creditorName}님에게 ${transferDialogData.amount.toLocaleString()}원을 송금하시겠습니까?\n\n토스 앱으로 이동하여 송금을 완료한 후 앱으로 돌아오면 송금 확인 메시지가 표시됩니다.`
+            : ''
+        }
+        buttons={[
+          {
+            text: '취소',
+            style: 'cancel',
+          },
+          {
+            text: '토스로 이동',
+            style: 'default',
+            onPress: handleGoToToss,
+          },
+        ]}
+        onDismiss={() => setTransferDialogVisible(false)}
+      />
+
+      {/* 송금 완료 확인 다이얼로그 */}
+      <CustomDialog
+        visible={confirmDialogVisible}
+        title="송금 확인"
+        message="송금을 완료하셨나요?"
+        buttons={[
+          {
+            text: '아니오',
+            style: 'cancel',
+          },
+          {
+            text: '완료',
+            style: 'default',
+            onPress: handleConfirmTransfer,
+          },
+        ]}
+        onDismiss={() => setConfirmDialogVisible(false)}
+      />
+
+      {/* 정산 삭제 확인 다이얼로그 */}
+      <CustomDialog
+        visible={deleteDialogVisible}
+        title="정산 삭제"
+        message="정산을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        buttons={[
+          {
+            text: '취소',
+            style: 'cancel',
+          },
+          {
+            text: '삭제',
+            style: 'destructive',
+            onPress: handleConfirmDelete,
+          },
+        ]}
+        onDismiss={() => setDeleteDialogVisible(false)}
+      />
     </SafeAreaView>
   );
 };

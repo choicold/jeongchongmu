@@ -50,13 +50,13 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       return null;
     }
 
-    // Expo Push Token 가져오기 (FCM 토큰)
-    const pushToken = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EAS_PROJECT_ID || 'your-project-id',
-    });
+    // FCM Device Push Token 가져오기
+    // getExpoPushTokenAsync() 대신 getDevicePushTokenAsync() 사용
+    // 이렇게 하면 실제 FCM 토큰을 직접 받을 수 있음
+    const pushToken = await Notifications.getDevicePushTokenAsync();
 
     token = pushToken.data;
-    console.log('✅ FCM 토큰 발급 성공:', token);
+    console.log('✅ FCM Device 토큰 발급 성공:', token);
 
     // Android 알림 채널 설정
     if (Platform.OS === 'android') {
