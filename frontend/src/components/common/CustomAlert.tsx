@@ -83,7 +83,7 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
     }
   };
 
-  // 버튼 순서 정렬: cancel이 아닌 버튼들이 먼저, cancel 버튼이 마지막
+  // 버튼 순서 정렬: destructive/default 버튼이 위, cancel 버튼이 아래
   const sortedButtons = [...buttons].sort((a, b) => {
     if (a.style === 'cancel' && b.style !== 'cancel') return 1;
     if (a.style !== 'cancel' && b.style === 'cancel') return -1;
@@ -188,44 +188,44 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   buttonsContainer: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.light,
+    flexDirection: 'column',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 8,
   },
   button: {
-    flex: 1,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 12,
   },
   singleButton: {
     flex: 1,
   },
   buttonDivider: {
-    width: 1,
-    backgroundColor: COLORS.border.light,
+    height: 0,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
   },
   defaultButton: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.primary,
   },
   defaultButtonText: {
-    color: COLORS.primary,
+    color: COLORS.white,
   },
   cancelButton: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background.secondary,
   },
   cancelButtonText: {
-    color: COLORS.text.secondary,
+    color: COLORS.text.primary,
   },
   destructiveButton: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.error,
   },
   destructiveButtonText: {
-    color: COLORS.error,
+    color: COLORS.white,
   },
 });
 

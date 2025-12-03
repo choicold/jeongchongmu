@@ -108,6 +108,23 @@ export const CreateSettlementScreen: React.FC<Props> = ({
         : membersData; // participants가 없으면 전체 멤버 표시
 
       setMembers(filteredMembers);
+
+      // 5. 지출 참여자를 participantIds로 자동 설정 (멤버 고정)
+      const participantUserIds = filteredMembers.map(member => member.user.id);
+      setParticipantIds(participantUserIds);
+
+      // 6. 직접/퍼센트 정산을 위한 초기 엔트리 생성
+      const initialDirectEntries = filteredMembers.map(member => ({
+        userId: member.user.id,
+        amount: 0,
+      }));
+      setDirectEntries(initialDirectEntries);
+
+      const initialPercentEntries = filteredMembers.map(member => ({
+        userId: member.user.id,
+        ratio: 0,
+      }));
+      setPercentEntries(initialPercentEntries);
     } catch (err: any) {
       console.error('데이터 조회 에러:', err);
       setError(err.message || '데이터를 불러오는데 실패했습니다.');
@@ -120,11 +137,24 @@ export const CreateSettlementScreen: React.FC<Props> = ({
    * 정산 방식 변경 핸들러
    */
   const handleMethodChange = (newMethod: SettlementMethod) => {
+    // 항목별 정산 선택 시 세부 항목 검증
+    if (newMethod === 'ITEM' && expense) {
+      if (!expense.items || expense.items.length === 0) {
+        showAlert({
+          title: '항목별 정산 불가',
+          message: '항목별 정산은 세부 항목이 있는 지출만 가능합니다.',
+        });
+        return;
+      }
+    }
+
     setMethod(newMethod);
-    // 방식 변경 시 입력값 초기화
-    setParticipantIds([]);
-    setDirectEntries([]);
-    setPercentEntries([]);
+
+    // 항목별 정산이 아닐 경우 입력값 초기화 방지 (멤버 고정 유지)
+    if (newMethod !== 'ITEM') {
+      // participantIds는 유지 (이미 fetchData에서 설정됨)
+      // directEntries와 percentEntries는 이미 초기화되어 있음
+    }
   };
 
   /**
@@ -387,6 +417,7 @@ export const CreateSettlementScreen: React.FC<Props> = ({
           <SettlementMethodSelector
             selectedMethod={method}
             onMethodChange={handleMethodChange}
+            hasItems={expense?.items && expense.items.length > 0}
           />
         </Card>
 

@@ -83,19 +83,27 @@ export const ExpenseDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       if (user && expenseData.participants && expenseData.participants.length > 0) {
         const isParticipant = expenseData.participants.includes(user.name);
         if (!isParticipant) {
-          setError('이 지출의 참여자만 조회할 수 있습니다.');
+          showToast('이 지출의 참여자만 조회할 수 있습니다.', 'error');
+          navigation.goBack();
           return;
         }
       }
 
       setExpense(expenseData);
 
-      // 투표 존재 여부 확인
-      try {
-        await voteApi.getVoteStatus(expenseId);
-        setVoteExists(true);
-      } catch (voteErr: any) {
-        // 투표가 없으면 404 에러가 발생함
+      // 투표 존재 여부 확인: 정산이 없는 경우에만 확인
+      // 정산이 이미 있으면 투표는 불필요
+      if (!expenseData.settlementId) {
+        try {
+          const voteStatus = await voteApi.getVoteStatus(expenseId);
+          // getVoteStatus는 투표가 없으면 null을 반환함 (404 에러를 throw하지 않음)
+          setVoteExists(voteStatus !== null);
+        } catch (voteErr: any) {
+          // 그 외의 네트워크 에러 등은 로그만 남기고 투표 없음으로 처리
+          console.warn('투표 조회 에러:', voteErr.message);
+          setVoteExists(false);
+        }
+      } else {
         setVoteExists(false);
       }
     } catch (err: any) {

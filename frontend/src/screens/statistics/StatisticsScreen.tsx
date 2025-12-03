@@ -76,14 +76,17 @@ export const StatisticsScreen: React.FC<Props> = ({ navigation }) => {
     try {
       setError('');
       const groupsData = await groupApi.getMyGroups();
+      console.log('[통계] 그룹 목록 조회 성공:', groupsData.length, '개');
+      console.log('[통계] 그룹 목록:', JSON.stringify(groupsData, null, 2));
       setGroups(groupsData);
 
       // 첫 번째 그룹을 기본 선택
       if (groupsData.length > 0 && !selectedGroupId) {
+        console.log('[통계] 첫 번째 그룹 선택:', groupsData[0].id, groupsData[0].name);
         setSelectedGroupId(groupsData[0].id);
       }
     } catch (err: any) {
-      console.error('그룹 목록 조회 에러:', err);
+      console.error('[통계] 그룹 목록 조회 에러:', err);
       setError(err.message || '그룹 목록을 불러오는데 실패했습니다.');
     }
   };
@@ -92,11 +95,16 @@ export const StatisticsScreen: React.FC<Props> = ({ navigation }) => {
    * 통계 조회 (현재 월 + 이전 월)
    */
   const fetchStatistics = async () => {
-    if (!selectedGroupId) return;
+    if (!selectedGroupId) {
+      console.log('[통계] selectedGroupId가 없어서 통계 조회 건너뜀');
+      return;
+    }
 
     try {
       setError('');
       setLoading(true);
+
+      console.log('[통계] 통계 조회 시작 - 그룹:', selectedGroupId, '기간:', selectedYear, '년', selectedMonth, '월');
 
       // 현재 월과 이전 월 통계를 병렬로 조회
       const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
@@ -117,20 +125,27 @@ export const StatisticsScreen: React.FC<Props> = ({ navigation }) => {
 
       // 현재 월 통계 처리
       if (data.status === 'fulfilled') {
+        console.log('[통계] 현재 월 통계 조회 성공:', JSON.stringify(data.value, null, 2));
+        console.log('[통계] - 총 지출:', data.value.totalExpenseAmount);
+        console.log('[통계] - 지출 건수:', data.value.totalExpenseCount);
+        console.log('[통계] - 카테고리 수:', data.value.categories?.length || 0);
+        console.log('[통계] - 연간 통계:', data.value.yearlyStatistics?.length || 0);
         setStatistics(data.value);
       } else {
+        console.error('[통계] 현재 월 통계 조회 실패:', data.reason);
         throw data.reason;
       }
 
       // 이전 월 통계 처리 (실패해도 무시)
       if (prevData.status === 'fulfilled') {
+        console.log('[통계] 이전 월 통계 조회 성공');
         setPreviousMonthStats(prevData.value);
       } else {
-        console.log('이전 달 통계 조회 실패 (무시)');
+        console.log('[통계] 이전 달 통계 조회 실패 (무시)');
         setPreviousMonthStats(null);
       }
     } catch (err: any) {
-      console.error('통계 조회 에러:', err);
+      console.error('[통계] 통계 조회 에러:', err);
       setError(err.message || '통계 데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
@@ -185,13 +200,17 @@ export const StatisticsScreen: React.FC<Props> = ({ navigation }) => {
    */
   const getCategoryData = () => {
     if (!statistics || !statistics.categories || statistics.categories.length === 0) {
+      console.log('[통계] getCategoryData - 카테고리 데이터 없음');
       return [];
     }
 
     const total = statistics.totalExpenseAmount;
-    if (total === 0) return [];
+    if (total === 0) {
+      console.log('[통계] getCategoryData - 총 지출이 0원');
+      return [];
+    }
 
-    return statistics.categories
+    const result = statistics.categories
       .map((cat, index) => ({
         name: cat.tagName,
         amount: cat.totalAmount,
@@ -200,6 +219,9 @@ export const StatisticsScreen: React.FC<Props> = ({ navigation }) => {
         icon: getCategoryEmoji(cat.tagName),
       }))
       .sort((a, b) => b.amount - a.amount);
+
+    console.log('[통계] getCategoryData - 카테고리 데이터:', result.length, '개');
+    return result;
   };
 
   /**
@@ -216,7 +238,7 @@ export const StatisticsScreen: React.FC<Props> = ({ navigation }) => {
     return statistics.yearlyStatistics.map((amount, index) => ({
       month: monthNames[index],
       amount,
-      height: Math.max((amount / maxAmount) * 100, 5), // 최소 5%
+      height: amount === 0 ? 0 : Math.max((amount / maxAmount) * 80, 5), // 최대 80%, 최소 5%
       isCurrent: index === selectedMonth - 1,
     }));
   };
@@ -316,6 +338,40 @@ export const StatisticsScreen: React.FC<Props> = ({ navigation }) => {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* 그룹 선택기 */}
+        {groups.length > 1 && (
+          <View style={styles.groupSelector}>
+            <Text style={styles.groupSelectorLabel}>그룹</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.groupScrollContainer}
+            >
+              {groups.map((group) => (
+                <TouchableOpacity
+                  key={group.id}
+                  style={[
+                    styles.groupChip,
+                    selectedGroupId === group.id && styles.groupChipActive,
+                  ]}
+                  onPress={() => setSelectedGroupId(group.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.groupChipText,
+                      selectedGroupId === group.id && styles.groupChipTextActive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {group.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* 월 선택기 */}
         <View style={styles.monthSelector}>
           <TouchableOpacity
@@ -650,6 +706,55 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
+  // 그룹 선택기
+  groupSelector: {
+    marginBottom: 20,
+  },
+  groupSelectorLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text.secondary,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  groupScrollContainer: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  groupChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.border.light,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.ui.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  groupChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  groupChipText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text.secondary,
+  },
+  groupChipTextActive: {
+    color: COLORS.white,
+  },
+
   // 월 선택기
   monthSelector: {
     flexDirection: 'row',
@@ -847,6 +952,7 @@ const styles = StyleSheet.create({
   // 차트 카드
   chartCard: {
     padding: 20,
+    overflow: 'hidden',
   },
   chartHeader: {
     flexDirection: 'row',
@@ -864,11 +970,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chartBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: COLORS.white,
+    textAlign: 'center',
   },
   barChartContainer: {
     flexDirection: 'row',
@@ -876,6 +985,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     height: 200,
     gap: 4,
+    overflow: 'hidden',
   },
   barWrapper: {
     flex: 1,

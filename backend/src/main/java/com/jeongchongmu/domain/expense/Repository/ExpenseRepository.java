@@ -18,9 +18,11 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     //저장, 삭제는 상속 받은거 쓰면 됨
     //.save(), .deleteById(id), .delete(expense) 등등
 
-    //그룹별 정산조회
-    @Query("SELECT e FROM Expense e " +
+    //그룹별 정산조회 (Payer와 Participants 모두 Fetch Join)
+    @Query("SELECT DISTINCT e FROM Expense e " +
             "LEFT JOIN FETCH e.payer " +
+            "LEFT JOIN FETCH e.participants p " +
+            "LEFT JOIN FETCH p.user " +
             "WHERE e.group = :group ORDER BY e.expenseData DESC")
     List<Expense> findByGroupWithPayer(@Param("group") Group group);
 

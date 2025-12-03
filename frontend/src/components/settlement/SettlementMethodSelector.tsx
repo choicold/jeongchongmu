@@ -12,6 +12,8 @@ export interface SettlementMethodSelectorProps {
   selectedMethod: SettlementMethod;
   /** 정산 방식 변경 핸들러 */
   onMethodChange: (method: SettlementMethod) => void;
+  /** 세부 항목 존재 여부 (항목별 정산 활성화 조건) */
+  hasItems?: boolean;
 }
 
 /**
@@ -60,18 +62,25 @@ const SETTLEMENT_METHODS = [
 export const SettlementMethodSelector: React.FC<SettlementMethodSelectorProps> = ({
   selectedMethod,
   onMethodChange,
+  hasItems = true, // 기본값: 세부 항목 있음
 }) => {
   return (
     <View style={styles.container}>
       {SETTLEMENT_METHODS.map((option) => {
         const isSelected = selectedMethod === option.value;
+        const isDisabled = option.value === 'ITEM' && !hasItems;
 
         return (
           <TouchableOpacity
             key={option.value}
-            style={[styles.option, isSelected && styles.optionSelected]}
-            onPress={() => onMethodChange(option.value)}
+            style={[
+              styles.option,
+              isSelected && styles.optionSelected,
+              isDisabled && styles.optionDisabled,
+            ]}
+            onPress={() => !isDisabled && onMethodChange(option.value)}
             activeOpacity={0.7}
+            disabled={isDisabled}
           >
             {/* 라디오 버튼 + 아이콘 */}
             <View style={styles.optionHeader}>
@@ -90,12 +99,22 @@ export const SettlementMethodSelector: React.FC<SettlementMethodSelectorProps> =
                 <Ionicons
                   name={option.icon}
                   size={24}
-                  color={isSelected ? COLORS.primary : COLORS.text.secondary}
+                  color={
+                    isDisabled
+                      ? COLORS.text.tertiary
+                      : isSelected
+                      ? COLORS.primary
+                      : COLORS.text.secondary
+                  }
                 />
 
                 {/* 라벨 */}
                 <Text
-                  style={[styles.label, isSelected && styles.labelSelected]}
+                  style={[
+                    styles.label,
+                    isSelected && styles.labelSelected,
+                    isDisabled && styles.labelDisabled,
+                  ]}
                 >
                   {option.label}
                 </Text>
@@ -107,9 +126,12 @@ export const SettlementMethodSelector: React.FC<SettlementMethodSelectorProps> =
               style={[
                 styles.description,
                 isSelected && styles.descriptionSelected,
+                isDisabled && styles.descriptionDisabled,
               ]}
             >
-              {option.description}
+              {isDisabled
+                ? '항목별 정산은 세부 항목이 있는 지출만 가능합니다'
+                : option.description}
             </Text>
           </TouchableOpacity>
         );
@@ -181,5 +203,15 @@ const styles = StyleSheet.create({
   },
   descriptionSelected: {
     color: COLORS.text.secondary,
+  },
+  optionDisabled: {
+    opacity: 0.5,
+    backgroundColor: COLORS.background.tertiary,
+  },
+  labelDisabled: {
+    color: COLORS.text.tertiary,
+  },
+  descriptionDisabled: {
+    color: COLORS.text.tertiary,
   },
 });

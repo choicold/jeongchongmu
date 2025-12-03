@@ -89,24 +89,24 @@ export const castVote = async (data: CastVoteRequest): Promise<string> => {
  * 각 옵션(메뉴)별로 누가 투표했는지 확인할 수 있습니다.
  *
  * @param expenseId - 투표 현황을 조회할 지출 ID
- * @returns Promise<VoteResponse> - 투표 현황 (옵션별 투표자 목록)
+ * @returns Promise<VoteResponse | null> - 투표 현황 (옵션별 투표자 목록), 투표가 없으면 null
  *
- * @throws {Error} 투표 현황 조회 실패 시 에러 발생
+ * @throws {Error} 투표 현황 조회 실패 시 에러 발생 (404 제외)
  *
  * @example
  * ```typescript
- * try {
- *   const voteStatus = await getVoteStatus(10);
+ * const voteStatus = await getVoteStatus(10);
+ * if (voteStatus) {
  *   console.log("투표 마감 여부:", voteStatus.isClosed);
  *   voteStatus.options.forEach(option => {
  *     console.log(`${option.itemName}: ${option.votedUserIds.length}명 선택`);
  *   });
- * } catch (error) {
- *   console.error("투표 현황 조회 실패:", error);
+ * } else {
+ *   console.log("투표가 아직 생성되지 않았습니다.");
  * }
  * ```
  */
-export const getVoteStatus = async (expenseId: number): Promise<VoteResponse> => {
+export const getVoteStatus = async (expenseId: number): Promise<VoteResponse | null> => {
   try {
     const response = await apiClient.get<VoteResponse>(`/api/votes/${expenseId}`);
     return response.data;
@@ -114,7 +114,8 @@ export const getVoteStatus = async (expenseId: number): Promise<VoteResponse> =>
     console.error('투표 현황 조회 API 에러:', error.response?.data || error.message);
 
     if (error.response?.status === 404) {
-      throw new Error('투표가 존재하지 않습니다.');
+      // 투표가 없는 것은 정상적인 상황이므로 null 반환
+      return null;
     }
 
     throw new Error(

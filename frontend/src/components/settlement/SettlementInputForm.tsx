@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { GroupMemberDto } from '../../types/group.types';
 import {
   SettlementMethod,
@@ -38,6 +39,8 @@ export interface SettlementInputFormProps {
   percentEntries: PercentSettlementEntry[];
   /** 퍼센트 변경 콜백 */
   onPercentEntriesChange: (entries: PercentSettlementEntry[]) => void;
+  /** 멤버 선택 읽기 전용 여부 (지출 참여자 고정) */
+  readOnlyParticipants?: boolean;
 }
 
 /**
@@ -54,6 +57,7 @@ export const SettlementInputForm: React.FC<SettlementInputFormProps> = ({
   onDirectEntriesChange,
   percentEntries,
   onPercentEntriesChange,
+  readOnlyParticipants = true, // 기본값: 읽기 전용 (지출 참여자 고정)
 }) => {
   /**
    * 직접 입력 금액 변경
@@ -118,15 +122,46 @@ export const SettlementInputForm: React.FC<SettlementInputFormProps> = ({
       case 'N_BUN_1':
         return (
           <View>
-            <Text style={styles.description}>
-              참여자를 선택하면 금액이 균등하게 분배됩니다.
-            </Text>
-            <ParticipantSelector
-              members={members}
-              selectedIds={participantIds}
-              onSelectionChange={onParticipantsChange}
-              multiSelect
-            />
+            {readOnlyParticipants ? (
+              <>
+                <View style={styles.fixedParticipantsNotice}>
+                  <Ionicons
+                    name="information-circle"
+                    size={16}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.fixedParticipantsText}>
+                    지출 참여자로 자동 설정됨
+                  </Text>
+                </View>
+                <View style={styles.participantsList}>
+                  {members.map((member) => (
+                    <View key={member.user.id} style={styles.participantChip}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color={COLORS.primary}
+                      />
+                      <Text style={styles.participantChipText}>
+                        {member.user.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.description}>
+                  참여자를 선택하면 금액이 균등하게 분배됩니다.
+                </Text>
+                <ParticipantSelector
+                  members={members}
+                  selectedIds={participantIds}
+                  onSelectionChange={onParticipantsChange}
+                  multiSelect
+                />
+              </>
+            )}
             {participantIds.length > 0 && (
               <View style={styles.infoBox}>
                 <Text style={styles.infoLabel}>1인당 금액</Text>
@@ -395,5 +430,42 @@ const styles = StyleSheet.create({
     color: COLORS.text.tertiary,
     lineHeight: 20,
     marginTop: 8,
+  },
+  fixedParticipantsNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DBEAFE', // blue-100
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 6,
+  },
+  fixedParticipantsText: {
+    fontSize: 13,
+    color: '#1E40AF', // blue-800
+    fontWeight: '500',
+  },
+  participantsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  participantChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background.secondary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+  },
+  participantChipText: {
+    fontSize: 14,
+    color: COLORS.text.primary,
+    fontWeight: '500',
   },
 });

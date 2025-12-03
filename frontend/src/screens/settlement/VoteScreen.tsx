@@ -97,8 +97,12 @@ export const VoteScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       }
 
-      // 3. 투표 현황 조회
+      // 3. 투표 현황 조회 (투표가 없으면 null 반환)
       const voteResponse = await voteApi.getVoteStatus(expenseId);
+      if (voteResponse === null) {
+        setError('투표가 아직 생성되지 않았습니다.');
+        return;
+      }
       setVoteData(voteResponse);
 
       // 4. 그룹 멤버 조회 (expenseDetail의 groupId 필요)

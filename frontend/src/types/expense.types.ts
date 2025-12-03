@@ -35,6 +35,7 @@ export interface ExpenseSimpleDTO {
   settlementId?: number; // 정산 ID (정산이 생성되지 않은 경우 undefined)
   voteId?: number; // 투표 ID (투표가 생성되지 않은 경우 undefined)
   isVoteClosed?: boolean; // 투표 마감 여부 (투표가 없으면 undefined)
+  participants?: string[]; // 참여자 이름 배열 (백엔드에서 제공하는 경우)
 }
 
 /**

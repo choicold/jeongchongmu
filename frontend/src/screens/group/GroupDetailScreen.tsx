@@ -35,6 +35,7 @@ import { getCategoryEmoji } from '../../utils/categoryIcons';
 type Props = NativeStackScreenProps<GroupsStackParamList, 'GroupDetail'>;
 
 type TabType = 'expenses' | 'members' | 'settlement';
+type ExpenseSubTabType = 'all' | 'mine';
 
 /**
  * GroupDetailScreen - 그룹 상세 화면 (완전 개선 버전)
@@ -73,8 +74,28 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   // 설정 메뉴 표시 state
   const [isSettingsMenuVisible, setIsSettingsMenuVisible] = useState(false);
 
-  // 총 지출 계산
-  const totalExpense = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  // 지출 내역 서브 탭 state
+  const [expenseSubTab, setExpenseSubTab] = useState<ExpenseSubTabType>('all');
+
+  // 내가 참여한 지출만 필터링 (지출 생성자이거나 참여자인 경우)
+  const myExpenses = expenses.filter(expense => {
+    if (!user) return false;
+
+    // 1. 내가 지출 생성자인 경우
+    const isCreator = expense.payerName === user.name;
+
+    // 2. 참여자 목록에 내가 포함된 경우
+    // participants가 없으면 생성자만 표시 (백엔드 호환성)
+    const isParticipant = expense.participants?.includes(user.name) ?? false;
+
+    return isCreator || isParticipant;
+  });
+
+  // 현재 표시할 지출 목록 (서브 탭에 따라)
+  const displayedExpenses = expenseSubTab === 'all' ? expenses : myExpenses;
+
+  // 총 지출 계산 (표시된 지출 기준)
+  const totalExpense = displayedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   // 현재 사용자가 OWNER인지 확인
   const currentMember = members.find((m) => m.user.id === user?.id);
@@ -637,6 +658,44 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.tabContent}>
           {activeTab === 'expenses' && (
             <View style={styles.expensesTab}>
+              {/* 지출 서브 탭 */}
+              <View style={styles.expenseSubTabContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.expenseSubTab,
+                    expenseSubTab === 'all' && styles.expenseSubTabActive,
+                  ]}
+                  onPress={() => setExpenseSubTab('all')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.expenseSubTabText,
+                      expenseSubTab === 'all' && styles.expenseSubTabTextActive,
+                    ]}
+                  >
+                    최근 활동
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.expenseSubTab,
+                    expenseSubTab === 'mine' && styles.expenseSubTabActive,
+                  ]}
+                  onPress={() => setExpenseSubTab('mine')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.expenseSubTabText,
+                      expenseSubTab === 'mine' && styles.expenseSubTabTextActive,
+                    ]}
+                  >
+                    내 지출
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {/* 총 지출 카드 */}
               <View style={styles.totalExpenseCard}>
                 <Text style={styles.totalExpenseLabel}>현재까지 총 지출</Text>
@@ -650,16 +709,18 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.totalExpenseDetail}>
                   <Text style={styles.totalExpenseDetailLabel}>총 지출 건수</Text>
                   <Text style={styles.totalExpenseDetailAmount}>
-                    {expenses.length}건
+                    {displayedExpenses.length}건
                   </Text>
                 </View>
               </View>
 
-              {/* 최근 활동 */}
-              {expenses.length > 0 ? (
+              {/* 지출 내역 목록 */}
+              {displayedExpenses.length > 0 ? (
                 <>
-                  <Text style={styles.sectionLabel}>최근 활동</Text>
-                  {expenses.map((expense) => (
+                  <Text style={styles.sectionLabel}>
+                    {expenseSubTab === 'all' ? '최근 활동' : '내가 참여한 지출'}
+                  </Text>
+                  {displayedExpenses.map((expense) => (
                     <Card key={expense.id} style={styles.expenseCard}>
                       <TouchableOpacity
                         style={styles.expenseItem}
@@ -724,10 +785,10 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           {activeTab === 'settlement' && (
             <View style={styles.settlementTab}>
               {/* 투표 진행 중 */}
-              {expenses.filter(e => e.voteId && !e.isVoteClosed).length > 0 && (
+              {myExpenses.filter(e => e.voteId && !e.isVoteClosed).length > 0 && (
                 <>
                   <Text style={styles.settlementSectionTitle}>투표 진행 중</Text>
-                  {expenses
+                  {myExpenses
                     .filter(e => e.voteId && !e.isVoteClosed)
                     .map((expense) => (
                       <Card key={expense.id} style={styles.settlementCard}>
@@ -772,13 +833,13 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
 
               {/* 완료된 정산 */}
-              {expenses.filter(e => {
+              {myExpenses.filter(e => {
                 const settlement = settlements.get(e.id);
                 return settlement && settlement.status === 'COMPLETED';
               }).length > 0 && (
                 <>
-                  <Text style={[styles.settlementSectionTitle, expenses.filter(e => e.voteId && !e.isVoteClosed).length > 0 && { marginTop: 24 }]}>완료</Text>
-                  {expenses
+                  <Text style={[styles.settlementSectionTitle, myExpenses.filter(e => e.voteId && !e.isVoteClosed).length > 0 && { marginTop: 24 }]}>완료</Text>
+                  {myExpenses
                     .filter(e => {
                       const settlement = settlements.get(e.id);
                       return settlement && settlement.status === 'COMPLETED';
@@ -826,7 +887,7 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
 
               {/* 정산 중 */}
-              {expenses.filter(e => {
+              {myExpenses.filter(e => {
                 const settlement = settlements.get(e.id);
                 return settlement && settlement.status === 'PENDING';
               }).length > 0 && (
@@ -834,7 +895,7 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   <Text style={[styles.settlementSectionTitle, { marginTop: 24 }]}>
                     정산 중
                   </Text>
-                  {expenses
+                  {myExpenses
                     .filter(e => {
                       const settlement = settlements.get(e.id);
                       return settlement && settlement.status === 'PENDING';
@@ -882,12 +943,12 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
 
               {/* 미정산 지출 (투표가 생성되지 않은 경우만) */}
-              {expenses.filter(e => !e.voteId && !e.settlementId).length > 0 && (
+              {myExpenses.filter(e => !e.voteId && !e.settlementId).length > 0 && (
                 <>
                   <Text style={[styles.settlementSectionTitle, { marginTop: 24 }]}>
                     미정산
                   </Text>
-                  {expenses
+                  {myExpenses
                     .filter(e => !e.voteId && !e.settlementId)
                     .map((expense) => {
                       const isMyExpense = user && expense.payerName === user.name;
@@ -942,7 +1003,7 @@ export const GroupDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
 
               {/* 지출이 없는 경우 */}
-              {expenses.length === 0 && (
+              {myExpenses.length === 0 && (
                 <View style={styles.emptySettlement}>
                   <Ionicons
                     name="receipt-outline"
@@ -1282,6 +1343,39 @@ const styles = StyleSheet.create({
   },
   expensesTab: {
     paddingBottom: 20,
+  },
+  expenseSubTabContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.background.secondary,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    gap: 4,
+  },
+  expenseSubTab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expenseSubTabActive: {
+    backgroundColor: COLORS.white,
+    shadowColor: COLORS.ui.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  expenseSubTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+  },
+  expenseSubTabTextActive: {
+    color: COLORS.text.primary,
+    fontWeight: '700',
   },
   totalExpenseCard: {
     backgroundColor: COLORS.primary,

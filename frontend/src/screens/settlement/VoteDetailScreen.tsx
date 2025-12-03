@@ -97,20 +97,9 @@ export const VoteDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       const expenseDetail = await expenseApi.getExpenseDetail(expenseId);
       setExpenseData(expenseDetail);
 
-      // 2. 투표 현황 조회 (투표가 없을 수 있음)
-      try {
-        const voteResponse = await voteApi.getVoteStatus(expenseId);
-        setVoteData(voteResponse);
-      } catch (voteErr: any) {
-        // 투표가 없는 경우는 에러로 처리하지 않음
-        if (voteErr.message?.includes('투표가 아직 생성되지 않았습니다')) {
-          console.log('투표가 아직 생성되지 않았습니다.');
-          setVoteData(null);
-        } else {
-          // 다른 에러인 경우 throw
-          throw voteErr;
-        }
-      }
+      // 2. 투표 현황 조회 (투표가 없으면 null 반환)
+      const voteResponse = await voteApi.getVoteStatus(expenseId);
+      setVoteData(voteResponse);
 
       // 3. 현재 사용자가 지출 참여자인지 확인 (접근 권한)
       if (user && expenseDetail.participants && expenseDetail.participants.length > 0) {
