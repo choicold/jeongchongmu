@@ -56,7 +56,7 @@ public class ExpenseAiTools {
             List<ExpenseItemDTO> items = parseItemsJson(itemsJson, title, amount);
             List<String> tagList = parseTags(tags);
 
-            long itemsSum = items.stream().mapToLong(ExpenseItemDTO::price).sum();
+            long itemsSum = items.stream().mapToLong(item -> item.price() * item.quantity()).sum();
             long finalAmount = (itemsSum > 0) ? itemsSum : amount;
 
             ExpenseCreateDTO dto = new ExpenseCreateDTO(
