@@ -23,7 +23,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "LEFT JOIN FETCH e.payer " +
             "LEFT JOIN FETCH e.participants p " +
             "LEFT JOIN FETCH p.user " +
-            "WHERE e.group = :group ORDER BY e.expenseData DESC")
+            "WHERE e.group = :group ORDER BY e.expenseDate DESC")
     List<Expense> findByGroupWithPayer(@Param("group") Group group);
 
     //특정 정산 + item + 참여인원 조회
@@ -43,8 +43,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "SUM(e.amount), COUNT(e), MAX(e.amount)) " +
             "FROM Expense e " +
             "WHERE e.group.id = :groupId " +
-            "AND YEAR(e.expenseData) = :year " +
-            "AND MONTH(e.expenseData) = :month")
+            "AND YEAR(e.expenseDate) = :year " +
+            "AND MONTH(e.expenseDate) = :month")
     ExpenseSummaryDto findMonthlyExpenseSummary(@Param("groupId") Long groupId,
                                                 @Param("year") int year,
                                                 @Param("month") int month);
@@ -56,8 +56,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "FROM Expense e " +
             "JOIN e.tags t " +
             "WHERE e.group.id = :groupId " +
-            "AND YEAR(e.expenseData) = :year " +
-            "AND MONTH(e.expenseData) = :month " +
+            "AND YEAR(e.expenseDate) = :year " +
+            "AND MONTH(e.expenseDate) = :month " +
             "GROUP BY t.name")
     List<CategorySummaryDto> findMonthlyCategoryStatistics(@Param("groupId") Long groupId,
                                                            @Param("year") int year,
@@ -69,8 +69,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "e.id, e.title, e.amount) " +
             "FROM Expense e " +
             "WHERE e.group.id = :groupId " +
-            "AND YEAR(e.expenseData) = :year " +
-            "AND MONTH(e.expenseData) = :month " +
+            "AND YEAR(e.expenseDate) = :year " +
+            "AND MONTH(e.expenseDate) = :month " +
             "ORDER BY e.amount DESC")
     List<TopExpenseDto> findTopExpense(@Param("groupId") Long groupId,
                                        @Param("year") int year,
@@ -79,11 +79,11 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     // 4. 연간 월별 합계
     @Query("SELECT new com.jeongchongmu.statistics.dto.MonthlyExpenseStatDto(" +
-            "MONTH(e.expenseData), SUM(e.amount)) " +
+            "MONTH(e.expenseDate), SUM(e.amount)) " +
             "FROM Expense e " +
             "WHERE e.group.id = :groupId " +
-            "AND YEAR(e.expenseData) = :year " +
-            "GROUP BY MONTH(e.expenseData)")
+            "AND YEAR(e.expenseDate) = :year " +
+            "GROUP BY MONTH(e.expenseDate)")
     List<MonthlyExpenseStatDto> findYearlyStatistics(@Param("groupId") Long groupId,
                                                      @Param("year") int year);
 
@@ -108,8 +108,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "FROM Expense e " +
             "LEFT JOIN e.participants p " +
             "WHERE e.group.id = :groupId " +
-            "AND YEAR(e.expenseData) = :year " +
-            "AND MONTH(e.expenseData) = :month " +
+            "AND YEAR(e.expenseDate) = :year " +
+            "AND MONTH(e.expenseDate) = :month " +
             "AND (e.payer.id = :userId OR p.user.id = :userId)")
     Long findUserMonthlyExpenseTotal(@Param("groupId") Long groupId,
                                       @Param("year") int year,
@@ -130,8 +130,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "LEFT JOIN e.participants p " +
             "JOIN e.tags t " +
             "WHERE e.group.id = :groupId " +
-            "AND YEAR(e.expenseData) = :year " +
-            "AND MONTH(e.expenseData) = :month " +
+            "AND YEAR(e.expenseDate) = :year " +
+            "AND MONTH(e.expenseDate) = :month " +
             "AND (e.payer.id = :userId OR p.user.id = :userId) " +
             "GROUP BY t.name")
     List<CategorySummaryDto> findUserMonthlyCategoryStatistics(@Param("groupId") Long groupId,
@@ -141,7 +141,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     // 7. 사용자별 연간 통계 (정산 기반)
     @Query("SELECT new com.jeongchongmu.statistics.dto.MonthlyExpenseStatDto(" +
-            "MONTH(e.expenseData), " +
+            "MONTH(e.expenseDate), " +
             "SUM(CASE " +
             "WHEN e.id IN (SELECT s.expense.id FROM Settlement s JOIN s.details sd WHERE sd.debtor.id = :userId) " +
             "THEN (SELECT COALESCE(SUM(sd2.amount), 0) FROM SettlementDetail sd2 WHERE sd2.settlement.expense.id = e.id AND sd2.debtor.id = :userId) " +
@@ -152,9 +152,9 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "FROM Expense e " +
             "LEFT JOIN e.participants p " +
             "WHERE e.group.id = :groupId " +
-            "AND YEAR(e.expenseData) = :year " +
+            "AND YEAR(e.expenseDate) = :year " +
             "AND (e.payer.id = :userId OR p.user.id = :userId) " +
-            "GROUP BY MONTH(e.expenseData)")
+            "GROUP BY MONTH(e.expenseDate)")
     List<MonthlyExpenseStatDto> findUserYearlyStatistics(@Param("groupId") Long groupId,
                                                           @Param("year") int year,
                                                           @Param("userId") Long userId);
@@ -172,8 +172,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "  END), 0) " +
             "FROM expense e " +
             "LEFT JOIN expense_participant ep ON ep.expense_id = e.id " +
-            "WHERE YEAR(e.expense_data) = :year " +
-            "AND MONTH(e.expense_data) = :month " +
+            "WHERE YEAR(e.expense_date) = :year " +
+            "AND MONTH(e.expense_date) = :month " +
             "AND (e.payer_id = :userId OR ep.user_id = :userId)",
             nativeQuery = true)
     Long findUserTotalMonthlyExpense(@Param("year") int year,
@@ -196,8 +196,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "LEFT JOIN expense_participant ep ON ep.expense_id = e.id " +
             "JOIN expense_tag et ON et.expense_id = e.id " +
             "JOIN tag t ON t.id = et.tag_id " +
-            "WHERE YEAR(e.expense_data) = :year " +
-            "AND MONTH(e.expense_data) = :month " +
+            "WHERE YEAR(e.expense_date) = :year " +
+            "AND MONTH(e.expense_date) = :month " +
             "AND (e.payer_id = :userId OR ep.user_id = :userId) " +
             "GROUP BY t.name",
             nativeQuery = true)
@@ -207,7 +207,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     // 10. 개인 전체 연간 통계 (모든 그룹 합산) - Native Query로 최적화
     @Query(value =
-            "SELECT MONTH(e.expense_data) as month, " +
+            "SELECT MONTH(e.expense_date) as month, " +
             "  COALESCE(SUM(" +
             "    CASE " +
             "      WHEN EXISTS (SELECT 1 FROM settlement s WHERE s.expense_id = e.id) " +
@@ -219,9 +219,9 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "    END), 0) as amount " +
             "FROM expense e " +
             "LEFT JOIN expense_participant ep ON ep.expense_id = e.id " +
-            "WHERE YEAR(e.expense_data) = :year " +
+            "WHERE YEAR(e.expense_date) = :year " +
             "AND (e.payer_id = :userId OR ep.user_id = :userId) " +
-            "GROUP BY MONTH(e.expense_data)",
+            "GROUP BY MONTH(e.expense_date)",
             nativeQuery = true)
     List<MonthlyExpenseStatDto> findUserTotalYearlyStatistics(@Param("year") int year,
                                                                @Param("userId") Long userId);
@@ -233,6 +233,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "LEFT JOIN FETCH p.user " +
             "LEFT JOIN FETCH e.settlement s " +
             "WHERE (e.payer.id = :userId OR p.user.id = :userId) " +
-            "ORDER BY e.expenseData DESC")
+            "ORDER BY e.expenseDate DESC")
     List<Expense> findRecentExpensesByUser(@Param("userId") Long userId, Pageable pageable);
 }

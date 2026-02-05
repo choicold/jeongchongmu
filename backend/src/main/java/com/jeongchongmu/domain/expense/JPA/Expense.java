@@ -2,6 +2,7 @@ package com.jeongchongmu.domain.expense.JPA;
 
 import com.jeongchongmu.common.BaseEntity;
 import com.jeongchongmu.domain.group.entity.Group;
+import com.jeongchongmu.settlement.entity.Settlement;
 import com.jeongchongmu.user.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -38,7 +39,10 @@ public class Expense extends BaseEntity {
     private Long amount;
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime expenseData;
+    private LocalDateTime expenseDate;
+
+    @OneToOne(mappedBy = "expense", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private Settlement settlement;
 
     @Column(length = 1000)
     private String receiptUrl;
@@ -110,7 +114,7 @@ public class Expense extends BaseEntity {
             this.amount = amount;
         }
         if (expenseData != null) {
-            this.expenseData = expenseData;
+            this.expenseDate = expenseData;
         }
     }
 }

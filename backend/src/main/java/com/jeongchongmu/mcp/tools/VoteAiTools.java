@@ -380,7 +380,7 @@ public class VoteAiTools {
                         .anyMatch(opt -> userVoteRepository.existsByUserAndVoteOption(user, opt));
 
                 String status = iVoted ? "✅참여완료 (수정가능)" : "🔥참여필요";
-                String dateStr = expense.getExpenseData().format(DateTimeFormatter.ofPattern("MM/dd"));
+                String dateStr = expense.getExpenseDate().format(DateTimeFormatter.ofPattern("MM/dd"));
 
                 sb.append(String.format("📌 **지출 ID: %d** | %s\n", expense.getId(), status)); // 사용자가 지출ID로 접근하는게 편하므로 지출 ID 강조
                 sb.append(String.format("   - 항목: **%s** (%,d원)\n", expense.getTitle(), expense.getAmount()));

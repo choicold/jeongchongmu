@@ -46,7 +46,7 @@ public record ExpenseDetailDTO(
                 expense.getId(),
                 expense.getTitle(),
                 expense.getAmount(),
-                expense.getExpenseData(),
+                expense.getExpenseDate(),
                 expense.getReceiptUrl(),
                 expense.getPayer().getName(),
                 expense.getGroup().getId(),

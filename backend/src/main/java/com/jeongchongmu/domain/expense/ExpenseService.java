@@ -89,7 +89,7 @@ public class ExpenseService {
         Expense expense = Expense.builder()
                 .title(dto.title())
                 .amount(dto.amount())
-                .expenseData(dto.expenseData())
+                .expenseDate(dto.expenseData())
                 .payer(payer)
                 .group(group)
                 .receiptUrl(dto.receiptUrl())

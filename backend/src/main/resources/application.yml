@@ -32,10 +32,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: false #원랜 ture
+    show-sql: false #원랜 true
     properties:
       hibernate:
-        format_sql: false #원랜 ture
+        format_sql: false #원랜 true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   flyway:

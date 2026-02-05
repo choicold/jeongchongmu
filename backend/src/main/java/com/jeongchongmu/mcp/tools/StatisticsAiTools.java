@@ -45,7 +45,7 @@ public class StatisticsAiTools {
 
             // 🔥 핵심 수정: null을 그대로 전달!
             MonthlyStatisticsResponseDto stats = statisticsService.getMonthlyStatistics(
-                    groupId, year, month  // ← null이면 null로 전달
+                    groupId, year, month, userId  // ← null이면 null로 전달
             );
 
             // 전체 기간인지 특정 월인지 구분하여 포맷
@@ -148,12 +148,13 @@ public class StatisticsAiTools {
     public String getMonthlyStatistics(
             @ToolParam(description = "그룹 ID") Long groupId,
             @ToolParam(description = "조회할 연도 (생략 시 전체 기간)", required = false) Integer year,
-            @ToolParam(description = "조회할 월 (생략 시 전체 기간)", required = false) Integer month
+            @ToolParam(description = "조회할 월 (생략 시 전체 기간)", required = false) Integer month,
+            @ToolParam(description = "조회한 유저 Id") Long userId
     ) {
         try {
             // 🔥 수정: null을 그대로 전달
             MonthlyStatisticsResponseDto stats = statisticsService.getMonthlyStatistics(
-                    groupId, year, month
+                    groupId, year, month, userId
             );
 
             boolean isAllTime = (year == null && month == null);

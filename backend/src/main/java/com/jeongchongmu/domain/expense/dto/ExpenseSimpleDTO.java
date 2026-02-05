@@ -28,7 +28,7 @@ public record ExpenseSimpleDTO(
                 expense.getTitle(),
                 expense.getAmount(),
                 expense.getPayer().getName(),
-                expense.getExpenseData(),
+                expense.getExpenseDate(),
                 settlementId,
                 voteId,
                 isVoteClosed,
