@@ -7,6 +7,17 @@
 
 현재 운영 서버는 내려간 상태이며, 앱 동작 기록은 캡스톤 결과 보고서를 참고합니다.
 
+## 화면 미리보기
+
+캡스톤 최종보고서의 결과 화면 캡처를 기준으로, 사용자가 앱에서 거치는 주요 흐름을 대표 화면으로 정리했습니다.
+
+| 서비스 진입 | 그룹 관리 | 지출/정산 관리 |
+| --- | --- | --- |
+| <strong>홈</strong><br><img src="docs/images/readme/home.png" width="220" alt="홈 화면"><br>내 지출, 받을 돈, 보낼 돈, 소속 그룹을 한 화면에서 확인합니다. | <strong>그룹 목록</strong><br><img src="docs/images/readme/group-list.png" width="220" alt="그룹 목록 화면"><br>참여 중인 모임을 조회하고 새 그룹을 만들 수 있습니다. | <strong>그룹 상세</strong><br><img src="docs/images/readme/group-detail.png" width="220" alt="그룹 상세 화면"><br>그룹별 정산 현황, 지출 내역, 멤버 정보를 관리합니다. |
+| <strong>영수증 첨부</strong><br><img src="docs/images/readme/receipt-upload.png" width="220" alt="영수증 첨부 화면"><br>영수증 사진을 촬영하거나 갤러리에서 첨부합니다. | <strong>OCR 분석</strong><br><img src="docs/images/readme/receipt-attached.png" width="220" alt="영수증 첨부 이후 화면"><br>첨부한 영수증을 OCR 분석으로 서버에 전송합니다. | <strong>지출 정보 확인</strong><br><img src="docs/images/readme/expense-form.png" width="220" alt="지출 정보 입력 화면"><br>OCR 결과로 채워진 금액, 날짜, 품목을 확인하고 수정합니다. |
+| <strong>정산 생성</strong><br><img src="docs/images/readme/settlement-create.png" width="220" alt="정산 생성 화면"><br>N빵, 직접 입력, 비율, 항목별 방식 중 정산 방식을 선택합니다. | <strong>항목별 투표</strong><br><img src="docs/images/readme/vote.png" width="220" alt="투표 화면"><br>항목별 정산에서는 각자 사용한 품목을 선택해 투표합니다. | <strong>정산 결과</strong><br><img src="docs/images/readme/settlement-result.png" width="220" alt="정산 결과 화면"><br>정산 참여자별 송금 대상과 금액을 확인합니다. |
+| <strong>지출 통계</strong><br><img src="docs/images/readme/statistics.png" width="220" alt="그룹 지출 분석 화면"><br>월별 지출과 카테고리별 지출 흐름을 시각화합니다. | <strong>알림</strong><br><img src="docs/images/readme/notifications.png" width="220" alt="알림 목록 화면"><br>정산 요청, 투표 등 주요 이벤트 알림을 확인합니다. | <strong>AI Agent</strong><br><img src="docs/images/readme/ai-chat.png" width="220" alt="AI 채팅 화면"><br>자연어로 지출 등록, 정산 조회, 그룹 조회 등을 요청합니다. |
+
 ## 서비스 흐름
 
 ```mermaid
@@ -141,6 +152,9 @@ frontend/
     hooks/                        # 통계, 대시보드, AI 채팅, 알림 훅
     navigation/                   # React Navigation 구성
     contexts/                     # 인증, 알림, 토스트, 데이터 컨텍스트
+
+docs/
+  images/readme/                  # README 화면 캡처
 ```
 
 ## 로컬 실행
