@@ -1,52 +1,200 @@
 # 정총무
 
-> 2025.09-12 캡스톤디자인 프로젝트<br>
-> 모임 지출 기록, 영수증 OCR, 참여자별 정산, 송금 확인까지 연결하는 그룹 가계부 서비스
+> 모임 지출부터 영수증 OCR, 참여자별 정산, 송금 확인까지 연결한 그룹 가계부 서비스
 
-정총무는 여행, 동아리, 회식처럼 여러 사람이 함께 쓰는 돈을 그룹 단위로 기록하고 정산하는 모바일 앱입니다. 지출 등록, 영수증 OCR, 품목별 투표, N빵/직접/비율/항목별 정산, 푸시 알림, 월별 통계, AI Agent를 하나의 흐름으로 묶어 "누가 무엇에 참여했고 얼마를 보내야 하는지"를 관리합니다.
+정총무는 여행, 회식, 동아리처럼 여러 사람이 함께 쓰는 돈을 그룹 단위로 기록하고 정산하는 모바일 앱입니다. 단순히 더치페이 금액을 계산하는 데서 끝나지 않고, 영수증 이미지 입력부터 지출 검증, 정산 방식 선택, 송금 확인, 알림과 통계까지 이어지는 흐름을 하나의 서비스로 묶었습니다.
 
-현재 운영 서버는 내려간 상태이며, 앱 동작 기록은 캡스톤 결과 보고서를 참고합니다.
+현재 운영 서버는 유지하지 않으며, 재현은 로컬 실행 기준으로 정리했습니다.
 
-## 화면 미리보기
+## 프로젝트 소개
 
-캡스톤 최종보고서의 결과 화면 캡처를 기준으로, 사용자가 앱에서 거치는 주요 흐름을 대표 화면으로 정리했습니다.
+| 항목 | 내용 |
+| --- | --- |
+| 기간 | 2025.09-2025.12 캡스톤디자인 |
+| 형태 | 4인 팀 프로젝트, Expo React Native 앱 + Spring Boot API |
+| 문제 | 모임 지출은 영수증 입력, 참여자 확인, 정산 방식 선택, 송금 완료 확인이 분리되어 있어 관리 비용이 큽니다. |
+| 접근 | 영수증 OCR, 품목별 투표, 여러 정산 방식, 알림, 통계를 지출 도메인 흐름 안에 연결했습니다. |
+| 역할 | 이선용: 지출 도메인, OCR 파이프라인, AI Agent |
 
-| 서비스 진입 | 그룹 관리 | 지출/정산 관리 |
+핵심 가치는 세 가지입니다.
+
+- 영수증을 지출 등록 화면으로 연결해 수동 입력 부담을 줄입니다.
+- N빵, 직접 입력, 비율, 항목별 투표 정산을 한 지출 도메인 위에서 처리합니다.
+- AI Agent가 자연어를 해석해 기존 그룹, 지출, 정산, 투표, 통계 기능을 Tool Calling으로 실행합니다.
+
+## 핵심 사용자 흐름
+
+| 영수증 첨부 | OCR 기반 지출 입력 | 정산 방식 선택 |
 | --- | --- | --- |
-| <strong>홈</strong><br><img src="docs/images/readme/home.png" width="220" alt="홈 화면"><br>내 지출, 받을 돈, 보낼 돈, 소속 그룹을 한 화면에서 확인합니다. | <strong>그룹 목록</strong><br><img src="docs/images/readme/group-list.png" width="220" alt="그룹 목록 화면"><br>참여 중인 모임을 조회하고 새 그룹을 만들 수 있습니다. | <strong>그룹 상세</strong><br><img src="docs/images/readme/group-detail.png" width="220" alt="그룹 상세 화면"><br>그룹별 정산 현황, 지출 내역, 멤버 정보를 관리합니다. |
-| <strong>영수증 첨부</strong><br><img src="docs/images/readme/receipt-upload.png" width="220" alt="영수증 첨부 화면"><br>영수증 사진을 촬영하거나 갤러리에서 첨부합니다. | <strong>OCR 분석</strong><br><img src="docs/images/readme/receipt-attached.png" width="220" alt="영수증 첨부 이후 화면"><br>첨부한 영수증을 OCR 분석으로 서버에 전송합니다. | <strong>지출 정보 확인</strong><br><img src="docs/images/readme/expense-form.png" width="220" alt="지출 정보 입력 화면"><br>OCR 결과로 채워진 금액, 날짜, 품목을 확인하고 수정합니다. |
-| <strong>정산 생성</strong><br><img src="docs/images/readme/settlement-create.png" width="220" alt="정산 생성 화면"><br>N빵, 직접 입력, 비율, 항목별 방식 중 정산 방식을 선택합니다. | <strong>항목별 투표</strong><br><img src="docs/images/readme/vote.png" width="220" alt="투표 화면"><br>항목별 정산에서는 각자 사용한 품목을 선택해 투표합니다. | <strong>정산 결과</strong><br><img src="docs/images/readme/settlement-result.png" width="220" alt="정산 결과 화면"><br>정산 참여자별 송금 대상과 금액을 확인합니다. |
-| <strong>지출 통계</strong><br><img src="docs/images/readme/statistics.png" width="220" alt="그룹 지출 분석 화면"><br>월별 지출과 카테고리별 지출 흐름을 시각화합니다. | <strong>알림</strong><br><img src="docs/images/readme/notifications.png" width="220" alt="알림 목록 화면"><br>정산 요청, 투표 등 주요 이벤트 알림을 확인합니다. | <strong>AI Agent</strong><br><img src="docs/images/readme/ai-chat.png" width="220" alt="AI 채팅 화면"><br>자연어로 지출 등록, 정산 조회, 그룹 조회 등을 요청합니다. |
+| <img src="docs/images/readme/receipt-upload.png" width="220" alt="영수증 첨부 화면"><br>영수증을 촬영하거나 갤러리에서 선택합니다. | <img src="docs/images/readme/expense-form.png" width="220" alt="지출 정보 입력 화면"><br>OCR 결과로 채워진 제목, 금액, 날짜, 품목을 사용자가 확인하고 수정합니다. | <img src="docs/images/readme/settlement-create.png" width="220" alt="정산 생성 화면"><br>지출에 맞는 정산 방식과 참여자를 선택합니다. |
 
-## 서비스 흐름
+| 항목별 투표 | 정산 결과 | AI Agent |
+| --- | --- | --- |
+| <img src="docs/images/readme/vote.png" width="220" alt="투표 화면"><br>항목별 정산에서는 각자 사용한 품목을 선택합니다. | <img src="docs/images/readme/settlement-result.png" width="220" alt="정산 결과 화면"><br>참여자별 송금 대상과 금액을 확인하고 송금 확인을 처리합니다. | <img src="docs/images/readme/ai-chat.png" width="220" alt="AI 채팅 화면"><br>자연어 요청을 기존 도메인 기능 실행으로 연결합니다. |
+
+전체 화면 캡처는 [docs/screenshots.md](docs/screenshots.md)에 따로 정리했습니다.
 
 ```mermaid
 flowchart LR
-    A["그룹 생성 및 초대"] --> B["지출 등록"]
+    A["그룹 생성"] --> B["지출 등록"]
     B --> C["영수증 OCR"]
-    B --> D["참여자 및 태그 지정"]
-    C --> D
+    C --> D["지출 정보 확인 및 수정"]
     D --> E["정산 방식 선택"]
     E --> F["N빵 / 직접 / 비율 / 항목별 정산"]
     F --> G["송금 확인"]
     G --> H["알림 및 통계 반영"]
-    B --> I["AI Agent 질의"]
-    I --> B
-    I --> F
 ```
 
-## 주요 기능
+## 핵심 구현
 
-| 영역 | 기능 |
-| --- | --- |
-| 그룹 관리 | 그룹 생성, 초대 코드 발급, 코드 기반 가입, 멤버 조회, 탈퇴 및 강퇴 |
-| 지출 관리 | 지출 생성/수정/삭제/조회, 참여자 지정, 태그 관리, 총액과 품목 합계 검증 |
-| 영수증 OCR | 이미지 업로드, Supabase Storage 저장, Gemini 기반 영수증 텍스트 및 품목 추출 |
-| 정산 | N빵, 직접 입력, 비율, 항목별 투표 기반 정산 생성 및 송금 완료 처리 |
-| 투표 | 지출 품목별 투표 생성, 항목 선택/취소, 투표 현황 조회 |
-| 통계 | 월별 지출, 카테고리별 지출, 정산 요약, 주요 지출 조회 |
-| 알림 | Expo Push Notification 기반 알림 조회 및 읽음 처리 |
-| AI Agent | 자연어 요청을 기존 그룹, 지출, 정산, 투표, 통계 기능과 Tool Calling으로 연결 |
+### 영수증 OCR 기반 지출 등록
+
+**문제**
+
+영수증의 품목, 수량, 금액을 직접 입력하면 항목 수가 늘어날수록 시간이 오래 걸리고 입력 오류가 발생하기 쉽습니다.
+
+**해결**
+
+`POST /api/ocr/scan`에서 이미지를 검증한 뒤 Supabase Storage에 업로드하고, 같은 이미지를 Gemini OCR로 분석해 지출 후보 데이터를 반환합니다. 프론트엔드는 OCR 결과를 지출 등록 화면의 초기값으로 채우고, 사용자가 수정한 뒤 지출 생성 API를 호출합니다.
+
+**검증/안전장치**
+
+- 백엔드 `ExpenseService`는 지출 생성/수정 시 `총액 == 품목 가격 * 수량 합계`를 검증합니다.
+- 프론트 `OCRService.validateOcrResult`는 OCR 결과의 누락 필드와 총액/품목 합계 차이를 사용자에게 확인시킵니다.
+- OCR 실패 시 지출 등록 화면의 직접 입력 경로를 사용할 수 있습니다.
+
+**관련 코드**
+
+- `backend/src/main/java/com/jeongchongmu/domain/OCR/OcrController.java`
+- `backend/src/main/java/com/jeongchongmu/domain/OCR/service/GeminiOcrService.java`
+- `backend/src/main/java/com/jeongchongmu/domain/OCR/service/SupabaseStorageService.java`
+- `backend/src/main/java/com/jeongchongmu/domain/expense/ExpenseService.java`
+- `frontend/src/screens/expense/OCRScanScreen.tsx`
+- `frontend/src/screens/expense/CreateExpenseScreen.tsx`
+
+### 다양한 정산 방식과 항목별 투표
+
+**문제**
+
+모임 정산은 항상 균등 분배로 끝나지 않습니다. 누군가는 특정 메뉴만 먹고, 어떤 경우에는 비율이나 직접 금액 입력이 필요합니다.
+
+**해결**
+
+정산 방식은 `SettlementMethod` enum으로 분리했고, `SettlementService.createSettlement`에서 방식별 계산 로직으로 분기합니다. 항목별 정산은 먼저 투표를 생성해 각 지출 품목을 선택지로 만들고, 투표 결과를 바탕으로 품목 금액을 참여자에게 나눠 배분합니다.
+
+**검증/안전장치**
+
+- 이미 정산이 생성된 지출은 중복 정산을 막습니다.
+- 정산 참여자가 해당 그룹 멤버인지 검증합니다.
+- 항목별 정산은 투표가 없으면 정산 생성을 중단합니다.
+
+**관련 코드**
+
+- `backend/src/main/java/com/jeongchongmu/settlement/service/SettlementService.java`
+- `backend/src/main/java/com/jeongchongmu/settlement/enums/SettlementMethod.java`
+- `backend/src/main/java/com/jeongchongmu/vote/service/VoteService.java`
+
+### AI Agent Tool Calling
+
+**문제**
+
+지출 조회, 정산 생성, 투표 생성처럼 여러 화면을 오가야 하는 작업은 모바일 앱에서 조작 단계가 늘어납니다.
+
+**해결**
+
+`/api/mcp/chat` 엔드포인트는 Spring AI `ChatClient`와 OpenAI GPT-4o를 사용합니다. 사용자의 자연어 요청을 받은 뒤 `ExpenseAiTools`, `GroupAiTools`, `SettlementAiTools`, `VoteAiTools`, `StatisticsAiTools`, `DateTimeAiTools`, `OcrAiTools`를 Tool로 연결해 기존 도메인 서비스를 호출합니다.
+
+코드상 패키지명과 컨트롤러명은 `mcp`이지만, 별도 MCP 서버 프로토콜을 구현한 구조라기보다 앱 내부 AI Agent API와 Tool Calling 레이어에 가깝습니다.
+
+**검증/안전장치**
+
+- 인증 사용자의 ID를 `ToolContext`에 넣어 Tool에서 현재 사용자 기준으로 실행합니다.
+- 시스템 프롬프트에 예시 ID 사용 금지, 조회 우선, 자동 정산 금지 규칙을 두었습니다.
+- 삭제 작업은 사용자 재확인을 요구하도록 프롬프트에 제한을 둡니다.
+
+**관련 코드**
+
+- `backend/src/main/java/com/jeongchongmu/mcp/McpChatController.java`
+- `backend/src/main/java/com/jeongchongmu/mcp/tools/ExpenseAiTools.java`
+- `backend/src/main/java/com/jeongchongmu/mcp/tools/SettlementAiTools.java`
+- `backend/src/main/java/com/jeongchongmu/mcp/tools/VoteAiTools.java`
+
+### 권한 검증과 데이터 분리
+
+**문제**
+
+그룹 지출은 같은 서버에 저장되더라도 그룹 멤버가 아닌 사용자가 조회하거나 수정하면 안 됩니다.
+
+**해결**
+
+지출 조회는 그룹 멤버십을 확인한 뒤 수행하고, 수정/삭제는 지출 결제자 또는 그룹 OWNER만 허용합니다. 상세 조회에는 Fetch Join을 적용해 지출 품목, 참여자, 태그를 함께 가져옵니다.
+
+**관련 코드**
+
+- `backend/src/main/java/com/jeongchongmu/domain/expense/ExpenseService.java`
+- `backend/src/main/java/com/jeongchongmu/domain/expense/Repository/ExpenseRepository.java`
+- `backend/src/main/java/com/jeongchongmu/config/SecurityConfig.java`
+
+### 알림 및 송금 확인
+
+**문제**
+
+정산 금액을 계산한 뒤에도 실제 송금 여부를 확인하지 않으면 정산 상태가 끝나지 않습니다.
+
+**해결**
+
+정산 생성, 투표 생성/완료, 정산 완료 시 알림을 DB에 저장하고 FCM으로 푸시합니다. 프론트는 Expo Notifications로 디바이스 토큰을 발급받아 서버에 등록합니다. 정산 상세에서는 Toss 딥링크로 송금 앱을 열고, 앱으로 돌아온 뒤 송금 확인 API를 호출해 `SettlementDetail.isSent`를 갱신합니다.
+
+**관련 코드**
+
+- `backend/src/main/java/com/jeongchongmu/domain/notification/service/NotificationService.java`
+- `backend/src/main/java/com/jeongchongmu/domain/notification/service/ExpoPushService.java`
+- `backend/src/main/java/com/jeongchongmu/config/FirebaseConfig.java`
+- `backend/src/main/java/com/jeongchongmu/settlement/dto/SettlementDetailDto.java`
+- `frontend/src/services/NotificationPermissionService.ts`
+- `frontend/src/screens/settlement/SettlementDetailScreen.tsx`
+
+## 시스템 아키텍처
+
+```mermaid
+flowchart TB
+    App["Expo React Native App"] --> API["Spring Boot REST API"]
+    App --> NotifyClient["Expo Notifications Client"]
+
+    API --> DB[("PostgreSQL")]
+    API --> Storage["Supabase Storage"]
+    API --> Gemini["Gemini 2.5 Flash OCR"]
+    API --> OpenAI["OpenAI GPT-4o via Spring AI"]
+    API --> FCM["Firebase Admin SDK / FCM"]
+
+    Storage --> Receipt["Receipt Image URL"]
+    FCM --> NotifyClient
+```
+
+### AI Agent 실행 흐름
+
+```mermaid
+sequenceDiagram
+    participant User as "사용자"
+    participant App as "Expo App"
+    participant Chat as "AI Agent API"
+    participant LLM as "OpenAI GPT-4o"
+    participant Tool as "Spring AI Tools"
+    participant Domain as "Domain Services"
+    participant DB as "PostgreSQL"
+
+    User->>App: 자연어 요청
+    App->>Chat: POST /api/mcp/chat
+    Chat->>LLM: 시스템 프롬프트 + 사용자 메시지
+    LLM->>Tool: 필요한 Tool 선택
+    Tool->>Domain: 지출/그룹/정산/투표/통계 서비스 호출
+    Domain->>DB: 조회 또는 변경
+    DB-->>Domain: 결과
+    Domain-->>Tool: DTO/처리 결과
+    Tool-->>LLM: Tool 결과
+    LLM-->>Chat: 자연어 응답
+    Chat-->>App: 응답 반환
+```
 
 ## 기술 스택
 
@@ -54,79 +202,62 @@ flowchart LR
 | --- | --- |
 | Backend | Java 21, Spring Boot 3.5.6, Spring Web, Spring Data JPA, Spring Security, Validation |
 | Database | PostgreSQL, Flyway |
-| Auth | JWT, Spring Security |
-| AI/OCR | Spring AI OpenAI GPT-4o, Gemini 2.5 Flash OCR |
+| Auth | JWT, BCrypt, Spring Security Filter Chain |
+| AI/OCR | Spring AI OpenAI, GPT-4o, Gemini 2.5 Flash |
 | Storage | Supabase Storage |
-| Notification | Firebase Admin SDK, Expo Push Notification |
+| Notification | Firebase Admin SDK, FCM, Expo Notifications |
 | Frontend | Expo 54, React Native 0.81, React 19, TypeScript |
-| UI/Navigation | React Navigation, React Native Paper, React Native SVG, Chart Kit |
-| API Docs | Swagger/OpenAPI |
-| Local Infra | Docker Compose PostgreSQL |
+| UI/Navigation | React Navigation, React Native Paper, React Native SVG, React Native Chart Kit |
+| Docs/Infra | Swagger/OpenAPI, Docker Compose |
 
-## 아키텍처 개요
+## 담당 역할
 
-```mermaid
-flowchart TB
-    subgraph Client["Expo React Native App"]
-        UI["Screens / Components"]
-        API["API Client"]
-        Chat["Chat Assistant"]
-    end
+### 이선용 | 지출 도메인 · OCR 파이프라인 · AI Agent
 
-    subgraph Server["Spring Boot API"]
-        Auth["JWT Security"]
-        Domain["Group / Expense / Settlement / Vote / Statistics"]
-        Agent["MCP Chat Controller"]
-        OCR["OCR Controller"]
-    end
+- 지출 생성, 수정, 삭제, 조회와 그룹 멤버십/수정 권한 검증 구현
+- 지출 품목 합계와 총액 일치 검증 로직 구현
+- 영수증 업로드, Supabase Storage 저장, Gemini OCR 응답 파싱 흐름 연결
+- 자연어 요청을 기존 지출/정산/투표/통계 기능으로 연결하는 Tool Calling 구조 구성
+- 인증 사용자 기준의 지출 조회와 상세 조회 API 구현
 
-    DB[("PostgreSQL")]
-    Storage["Supabase Storage"]
-    Gemini["Gemini OCR"]
-    OpenAI["OpenAI GPT-4o"]
-    Push["Firebase / Expo Push"]
+### 팀 구성
 
-    UI --> API
-    Chat --> API
-    API --> Auth
-    Auth --> Domain
-    Domain --> DB
-    OCR --> Storage
-    OCR --> Gemini
-    Agent --> OpenAI
-    Agent --> Domain
-    Domain --> Push
-```
-
-## API 영역
-
-| 영역 | 대표 엔드포인트 |
+| 이름 | 담당 영역 |
 | --- | --- |
-| 사용자 | `POST /api/user/signup`, `POST /api/user/login`, `GET /api/user/profile` |
-| 그룹 | `POST /api/groups`, `GET /api/groups`, `POST /api/groups/join`, `GET /api/groups/{groupId}/members` |
-| 지출 | `POST /api/expenses`, `GET /api/expenses?groupId=`, `GET /api/expenses/{id}`, `PATCH /api/expenses/{id}`, `DELETE /api/expenses/{id}` |
-| OCR | `POST /api/ocr/scan` |
-| 정산 | `POST /api/settlements`, `GET /api/settlements/{settlementId}`, `GET /api/settlements/by-expense/{expenseId}`, `POST /api/settlements/{settlementId}/confirm-transfer` |
-| 투표 | `POST /api/votes/{expenseId}`, `POST /api/votes/cast`, `GET /api/votes/{expenseId}`, `DELETE /api/votes/{expenseId}` |
-| 통계 | `GET /api/groups/{groupId}/statistics`, `GET /api/statistics` |
-| 알림 | `GET /api/notifications`, `PATCH /api/notifications/{notificationId}/read` |
-| AI Agent | `POST /api/mcp/chat` |
+| 이선용 | 지출 도메인, OCR 파이프라인, AI Agent |
+| 최한기 | 그룹, 알림, 프론트 |
+| 김지성 | 정산, 투표 |
+| 방경환 | 로그인, 통계, 프론트 |
+
+## 대표 API
+
+| 영역 | 엔드포인트 | 역할 |
+| --- | --- | --- |
+| 지출 | `POST /api/expenses` | 지출, 품목, 참여자, 태그 생성 |
+| 지출 | `GET /api/expenses?groupId={id}` | 그룹 지출 목록 조회 |
+| OCR | `POST /api/ocr/scan` | 영수증 이미지 업로드 및 OCR 분석 |
+| 정산 | `POST /api/settlements` | N빵, 직접, 비율, 항목별 정산 생성 |
+| 정산 | `POST /api/settlements/{id}/confirm-transfer` | 송금 완료 확인 |
+| 투표 | `POST /api/votes/{expenseId}` | 항목별 정산 투표 생성 |
+| AI Agent | `POST /api/mcp/chat` | 자연어 요청 처리 및 Tool Calling |
+
+전체 API는 백엔드 실행 후 Swagger UI에서 확인할 수 있습니다.
+
+```text
+http://localhost:8080/swagger-ui/index.html
+```
 
 ## 핵심 코드 경로
 
-| 코드 | 경로 | 역할 |
-| --- | --- | --- |
-| ExpenseService | `backend/src/main/java/com/jeongchongmu/domain/expense/ExpenseService.java` | 지출 생성/수정/삭제/조회, 총액-품목 합계 검증, 그룹 멤버십 및 권한 검증 |
-| ExpenseRepository | `backend/src/main/java/com/jeongchongmu/domain/expense/Repository/ExpenseRepository.java` | 지출 상세 조회용 Fetch Join 쿼리 |
-| SettlementService | `backend/src/main/java/com/jeongchongmu/settlement/service/SettlementService.java` | 정산 생성, 조회, 수정, 삭제, 송금 완료 처리 |
-| VoteService | `backend/src/main/java/com/jeongchongmu/vote/service/VoteService.java` | 항목별 투표 생성, 투표 반영, 투표 현황 조회 |
-| GeminiOcrService | `backend/src/main/java/com/jeongchongmu/domain/OCR/service/GeminiOcrService.java` | Gemini 기반 영수증 OCR 요청, 응답 정리, JSON 파싱 |
-| SupabaseStorageService | `backend/src/main/java/com/jeongchongmu/domain/OCR/service/SupabaseStorageService.java` | 영수증 이미지 업로드 및 Public URL 생성 |
-| McpChatController | `backend/src/main/java/com/jeongchongmu/mcp/McpChatController.java` | AI Agent 채팅 엔드포인트, 시스템 프롬프트, Tool Calling 연결 |
-| ExpenseAiTools | `backend/src/main/java/com/jeongchongmu/mcp/tools/ExpenseAiTools.java` | 자연어 기반 지출 생성, 수정, 삭제, 조회 Tool |
-| SettlementAiTools | `backend/src/main/java/com/jeongchongmu/mcp/tools/SettlementAiTools.java` | 자연어 기반 정산 생성, 조회, 삭제, 송금 확인 Tool |
-| DateTimeAiTools | `backend/src/main/java/com/jeongchongmu/mcp/tools/DateTimeAiTools.java` | 날짜, 기간, 월 정보 계산 Tool |
-| ChatAssistant | `frontend/src/components/common/ChatAssistant.tsx` | 앱 내 AI Agent 채팅 UI |
+| 경로 | 봐야 하는 이유 |
+| --- | --- |
+| `backend/src/main/java/com/jeongchongmu/domain/expense/ExpenseService.java` | 지출 생성, 총액/품목 합계 검증, 멤버십과 수정/삭제 권한 검증이 모여 있습니다. |
+| `backend/src/main/java/com/jeongchongmu/domain/OCR/service/GeminiOcrService.java` | Gemini OCR 프롬프트, 응답 정리, JSON 파싱 흐름을 확인할 수 있습니다. |
+| `backend/src/main/java/com/jeongchongmu/domain/OCR/service/SupabaseStorageService.java` | 영수증 이미지를 Supabase Storage에 저장하고 Public URL을 생성합니다. |
+| `backend/src/main/java/com/jeongchongmu/settlement/service/SettlementService.java` | N빵, 직접, 비율, 항목별 투표 정산 계산과 송금 완료 처리가 구현되어 있습니다. |
+| `backend/src/main/java/com/jeongchongmu/vote/service/VoteService.java` | 지출 품목을 투표 선택지로 만들고, 사용자 투표를 토글 처리합니다. |
+| `backend/src/main/java/com/jeongchongmu/mcp/McpChatController.java` | AI Agent 엔드포인트, 시스템 프롬프트, Spring AI Tool 연결을 확인할 수 있습니다. |
+| `backend/src/main/java/com/jeongchongmu/mcp/tools/SettlementAiTools.java` | 자연어 정산 요청이 실제 정산 서비스 호출로 이어지는 Tool 정의입니다. |
 
 ## 프로젝트 구조
 
@@ -140,8 +271,8 @@ backend/
     settlement/                   # 정산과 송금 확인
     vote/                         # 항목별 투표
     statistics/                   # 월별/카테고리별 통계
-    domain/notification/          # 알림
-    mcp/                          # AI Agent 엔드포인트와 Tool 정의
+    domain/notification/          # 알림 저장과 푸시 발송
+    mcp/                          # AI Agent API와 Tool 정의
     common/                       # JWT, 예외 처리, 공통 엔티티
 
 frontend/
@@ -151,39 +282,30 @@ frontend/
     services/api/                 # 백엔드 API 클라이언트
     hooks/                        # 통계, 대시보드, AI 채팅, 알림 훅
     navigation/                   # React Navigation 구성
-    contexts/                     # 인증, 알림, 토스트, 데이터 컨텍스트
+    context/, contexts/           # 인증, 알림, 토스트, 데이터 컨텍스트
 
 docs/
-  images/readme/                  # README 화면 캡처
+  images/readme/                  # README와 화면 문서에 쓰는 캡처
+  screenshots.md                  # 전체 화면 캡처 모음
 ```
 
-## 로컬 실행
+## 실행 방법
 
-### 1. 환경 변수 설정
+### 1. 환경 변수 준비
 
-`backend/src/main/resources/application.yml`과 `docker-compose.yml`에서 사용하는 값을 실행 환경에 설정합니다.
+루트의 `.env.example`을 참고해 로컬 환경 변수를 설정합니다. 실제 키와 인증 JSON은 커밋하지 않습니다.
 
-```bash
-SPRING_PROFILE=local
-SERVER_PORT=8080
+필수에 가까운 값:
 
-POSTGRES_DB=jeongchongmu
-POSTGRES_USER=admin
-POSTGRES_PASSWORD=password
+- PostgreSQL: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`
+- AI/OCR: `OPENAI_API_KEY`, `GOOGLE_API_KEY`
+- Storage: `SUPABASE_URL`, `SUPABASE_KEY`
+- Notification: `FIREBASE_CREDENTIALS_JSON` 또는 `FIREBASE_CREDENTIALS_PATH`
+- Frontend: `EXPO_PUBLIC_API_URL`
 
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=jeongchongmu
-DB_USERNAME=admin
-DB_PASSWORD=password
+AI/OCR 키가 없으면 관련 기능은 정상 동작하지 않습니다. 로컬에서 백엔드 기동만 확인하려면 환경 변수에 더미 값을 넣어 placeholder 해석 오류를 피하고, 실제 OCR/AI Agent 호출은 유효한 키를 설정한 뒤 확인해야 합니다. Firebase 인증 정보가 없으면 서버는 실행되지만 푸시 알림 전송은 비활성화됩니다.
 
-OPENAI_API_KEY=...
-GOOGLE_API_KEY=...
-SUPABASE_URL=...
-SUPABASE_KEY=...
-```
-
-### 2. DB 실행
+### 2. 로컬 DB 실행
 
 ```bash
 docker-compose up -d
@@ -201,16 +323,22 @@ cd backend
 ```bash
 cd frontend
 npm install
-npm start
+EXPO_PUBLIC_API_URL=http://localhost:8080 npm start
 ```
 
-Expo Go, Android/iOS 시뮬레이터, 또는 Expo web으로 앱을 확인할 수 있습니다. 기본 API 주소는 `frontend/src/constants/config.ts`의 `API_CONFIG.BASE_URL`에서 관리합니다.
+실기기에서 테스트할 때는 `localhost` 대신 같은 네트워크의 개발 PC IP를 사용해야 합니다.
 
-## 팀 구성
+## 문서 및 참고 자료
 
-| 이름 | 담당 영역 |
-| --- | --- |
-| 이선용 | 지출 도메인, OCR 파이프라인, AI Agent |
-| 최한기 | 그룹, 알림, 프론트 |
-| 김지성 | 정산, 투표 |
-| 방경환 | 로그인, 통계, 프론트 |
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- 전체 화면 캡처: [docs/screenshots.md](docs/screenshots.md)
+- 프론트 API 매핑 문서: [frontend/docs/api_mapping.md](frontend/docs/api_mapping.md)
+- 캡스톤 최종보고서: 별도 제출 PDF 기준으로 화면 캡처와 기능 흐름을 정리했습니다.
+
+## 확인 필요 사항
+
+다음 내용은 코드 기준으로 확인한 현재 상태입니다. README에서는 확정 구현처럼 과장하지 않았습니다.
+
+- 프론트 `CreateExpenseScreen`은 OCR 결과의 `receiptUrl`을 지출 생성 요청에 포함하지 않습니다. 백엔드 DTO와 AI Tool은 `receiptUrl`을 지원하지만, 일반 OCR 화면 경로에서는 추가 연결이 필요합니다.
+- AI Agent 시스템 프롬프트에는 "참여자 전원 기본값" 규칙이 있으나, `ExpenseAiTools.createExpense()`는 현재 `participantIds`를 빈 목록으로 전달합니다.
+- `mcp`는 패키지/컨트롤러 이름으로 사용되고 있으며, README에서는 외부 MCP 서버 구현처럼 표현하지 않았습니다.
