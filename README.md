@@ -4,7 +4,7 @@
 
 정총무는 여행, 회식, 동아리처럼 여러 사람이 함께 쓰는 돈을 그룹 단위로 기록하고 정산하는 모바일 앱입니다. 단순히 더치페이 금액을 계산하는 데서 끝나지 않고, 영수증 이미지 입력부터 지출 검증, 정산 방식 선택, 송금 확인, 알림과 통계까지 이어지는 흐름을 하나의 서비스로 묶었습니다.
 
-현재 운영 서버는 유지하지 않으며, 재현은 로컬 실행 기준으로 정리했습니다.
+현재 운영 서버는 유지하지 않습니다.
 
 ## 프로젝트 소개
 
@@ -14,7 +14,7 @@
 | 형태 | 4인 팀 프로젝트, Expo React Native 앱 + Spring Boot API |
 | 문제 | 모임 지출은 영수증 입력, 참여자 확인, 정산 방식 선택, 송금 완료 확인이 분리되어 있어 관리 비용이 큽니다. |
 | 접근 | 영수증 OCR, 품목별 투표, 여러 정산 방식, 알림, 통계를 지출 도메인 흐름 안에 연결했습니다. |
-| 역할 | 이선용: 지출 도메인, OCR 파이프라인, AI Agent |
+| 역할 | 최한기: 팀장, 인프라/환경, 그룹, 알림<br>이선용: 지출 도메인, OCR 파이프라인, AI Agent<br>방경환: 로그인/인증, 통계<br>김지성: 정산, 투표 |
 
 핵심 가치는 세 가지입니다.
 
@@ -103,8 +103,6 @@ flowchart LR
 **해결**
 
 `/api/mcp/chat` 엔드포인트는 Spring AI `ChatClient`와 OpenAI GPT-4o를 사용합니다. 사용자의 자연어 요청을 받은 뒤 `ExpenseAiTools`, `GroupAiTools`, `SettlementAiTools`, `VoteAiTools`, `StatisticsAiTools`, `DateTimeAiTools`, `OcrAiTools`를 Tool로 연결해 기존 도메인 서비스를 호출합니다.
-
-코드상 패키지명과 컨트롤러명은 `mcp`이지만, 별도 MCP 서버 프로토콜을 구현한 구조라기보다 앱 내부 AI Agent API와 Tool Calling 레이어에 가깝습니다.
 
 **검증/안전장치**
 
@@ -212,22 +210,52 @@ sequenceDiagram
 
 ## 담당 역할
 
-### 이선용 | 지출 도메인 · OCR 파이프라인 · AI Agent
+초기 담당 영역을 기준으로 나누되, 후반 통합 과정에서는 서로의 도메인을 수정하고 보완했습니다.
+
+### 최한기(choicold) | 팀장 · 인프라/환경 · 그룹 · 알림
+
+- 팀장으로 전체 개발 흐름을 관리하고, 초기 프로젝트 구조와 백엔드/프론트 환경 세팅을 주도
+- Docker Compose, Railway 배포 설정, GitHub Actions, 환경 변수 예시, Spring 설정 등 인프라 기반 구성
+- 그룹/그룹멤버 엔티티, Repository, Service, Controller와 그룹 생성/가입/멤버 관리 흐름 구현
+- 그룹 도메인 Repository/Service 테스트와 H2 테스트 의존성, Flyway 스키마 정리 작업 수행
+- Firebase Admin SDK, FCM/Expo Push, 알림 저장/조회/전송 흐름과 알림 화면 라우팅 구현 및 보완
+- 프론트 공통 컴포넌트, 주요 화면 골격, API 클라이언트/타입 정의, 빌드 설정 등 앱 전반 통합
+- 대시보드 통합 API와 통계 쿼리 성능 개선, 지출/정산/투표/알림 연동 오류 수정
+
+### 이선용(nametwo/twoname) | 지출 도메인 · OCR 파이프라인 · AI Agent
 
 - 지출 생성, 수정, 삭제, 조회와 그룹 멤버십/수정 권한 검증 구현
 - 지출 품목 합계와 총액 일치 검증 로직 구현
 - 영수증 업로드, Supabase Storage 저장, Gemini OCR 응답 파싱 흐름 연결
 - 자연어 요청을 기존 지출/정산/투표/통계 기능으로 연결하는 Tool Calling 구조 구성
 - 인증 사용자 기준의 지출 조회와 상세 조회 API 구현
+- Spring AI 기반 Agent API와 `ExpenseAiTools`, `SettlementAiTools`, `VoteAiTools`, `StatisticsAiTools` 등 도구 호출 계층 구현
+- 정산/투표 권한 검증, 마감 이후 투표 제한, 정산 계산 일부 에지 케이스 보완
 
-### 팀 구성
+### 방경환(Bangkyunghwan) | 로그인/인증 · 통계
 
-| 이름 | 담당 영역 |
-| --- | --- |
-| 이선용 | 지출 도메인, OCR 파이프라인, AI Agent |
-| 최한기 | 그룹, 알림, 프론트 |
-| 김지성 | 정산, 투표 |
-| 방경환 | 로그인, 통계, 프론트 |
+- 회원가입, 로그인, JWT 인증 시스템과 인증 필터/유틸, Security 설정 구현
+- 사용자 도메인의 Controller, Service, Repository, 요청/응답 DTO 기반 구성
+- 회원가입 시 은행명/계좌번호 입력 흐름과 서버 내부 에러 핸들러 보완
+- 그룹별 통계표 API 구현 및 정산/투표 기능과 통계 기능 사이의 충돌 해결
+- 초기 프론트 작업과 인증/통계 화면 연동 기반 작업 참여
+
+### 김지성(Kjs-ssu / Kim Ji Seong) | 정산 · 투표
+
+- 정산 엔티티, 정산 상세 엔티티, 정산 방식/상태 enum과 요청/응답 DTO 설계
+- `SettlementController`, Repository, Service 기반의 정산 생성/조회 흐름 구현
+- N빵, 직접 입력, 비율, 항목별 정산을 처리하는 계산 로직의 초기 구현
+- 투표 도메인과 항목별 정산 연결, 투표 생성/참여/결과 확인 흐름 구현
+- 그룹/지출 도메인과 정산·투표 기능 연결, API 수정과 프론트 보완 작업 참여
+
+### 역할 요약
+
+| 이름 | 주 담당 | 커밋 기준 보완 기여 |
+| --- | --- | --- |
+| 최한기 | 팀장, 인프라/환경, 그룹, 알림 | 프론트 골격, 대시보드/통계 최적화, 지출/정산/투표 통합 수정 |
+| 이선용 | 지출 도메인, OCR 파이프라인, AI Agent | 정산/투표 Tool Calling, 권한 검증과 계산 에지 케이스 보완 |
+| 방경환 | 로그인/인증, 통계 | 회원 정보 확장, 서버 에러 처리, 초기 프론트 작업 |
+| 김지성 | 정산, 투표 | 그룹/지출 연동, API 수정, 프론트 보완 |
 
 ## 대표 API
 
@@ -330,15 +358,5 @@ EXPO_PUBLIC_API_URL=http://localhost:8080 npm start
 
 ## 문서 및 참고 자료
 
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - 전체 화면 캡처: [docs/screenshots.md](docs/screenshots.md)
 - 프론트 API 매핑 문서: [frontend/docs/api_mapping.md](frontend/docs/api_mapping.md)
-- 캡스톤 최종보고서: 별도 제출 PDF 기준으로 화면 캡처와 기능 흐름을 정리했습니다.
-
-## 확인 필요 사항
-
-다음 내용은 코드 기준으로 확인한 현재 상태입니다. README에서는 확정 구현처럼 과장하지 않았습니다.
-
-- 프론트 `CreateExpenseScreen`은 OCR 결과의 `receiptUrl`을 지출 생성 요청에 포함하지 않습니다. 백엔드 DTO와 AI Tool은 `receiptUrl`을 지원하지만, 일반 OCR 화면 경로에서는 추가 연결이 필요합니다.
-- AI Agent 시스템 프롬프트에는 "참여자 전원 기본값" 규칙이 있으나, `ExpenseAiTools.createExpense()`는 현재 `participantIds`를 빈 목록으로 전달합니다.
-- `mcp`는 패키지/컨트롤러 이름으로 사용되고 있으며, README에서는 외부 MCP 서버 구현처럼 표현하지 않았습니다.
